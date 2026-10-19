@@ -72,7 +72,11 @@ import { fileURLToPath } from 'node:url';
 import { deflateSync, crc32 } from 'node:zlib';
 import { performance } from 'node:perf_hooks';
 
-import { World, DT } from '../src/sim.js';
+import { World } from '../src/sim.js';
+
+// The search's step counts (settling, measuring windows) were tuned at this step, so it keeps
+// using it whatever the page's DT is.
+const SEARCH_DT = 0.02;
 import {
   randomGenome, mutateGenome, hashString, mulberry32, quantizeAffinity,
   encodeGenome, decodeGenome, defaultParams, genomesEqual, GENOME_VERSION,
@@ -349,7 +353,7 @@ function measureWorld(job) {
   const { genome, n, rMax, settle } = job;
   const world = new World(n);
   world.reset({ ...genome, params: { ...genome.params, n, rMax } });
-  for (let s = 0; s < settle; s++) world.step();
+  for (let s = 0; s < settle; s++) world.step(SEARCH_DT);
 
   const S = world.S;
   const stats = world.stats();
@@ -387,11 +391,11 @@ function measureWorld(job) {
         ghost.x.set(world.x.subarray(0, n));
         ghost.y.set(world.y.subarray(0, n));
       }
-      world.step();
+      world.step(SEARCH_DT);
       const VX = world.vx, VY = world.vy;
       for (let i = 0; i < n; i++) {
-        ux[i] += VX[i] * DT;
-        uy[i] += VY[i] * DT;
+        ux[i] += VX[i] * SEARCH_DT;
+        uy[i] += VY[i] * SEARCH_DT;
       }
       if ((s + 1) % STATS_EVERY === 0) {
         world.stats(stats);

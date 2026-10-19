@@ -27,8 +27,9 @@
 import { mulberry32, defaultParams } from './genome.js';
 import { SPECIES_MIN, SPECIES_MAX } from './markers.js';
 
-/** Fixed integration step, in seconds. */
-export const DT = 0.02;
+// Simulated seconds per step. Small enough that motion stays smooth when the page plays the
+// dish in slow motion (a tenth of real time by default), and the integration is more accurate.
+export const DT = 0.004;
 
 /**
  * The force law, F(r, a) for r = distance / rMax.

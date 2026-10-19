@@ -19,16 +19,19 @@ import { PRESETS, decodeThumb } from './presets.js';
 import { SPECIES, SPECIES_MIN, SPECIES_MAX, paletteCSS, markerSVG, currentTheme } from './markers.js';
 
 const CAPACITY = 12000;
-const TRACK_POINTS = 600;              // 12 s of path at 50 steps/s
+const TRACK_POINTS = 600;              // steps of tracked path (about 24 s on screen at 1x)
 const STATS_INTERVAL = 100;            // ms between statistics samples
-// Speed is a multiple of real time, so it is the same on a 60 Hz and a 144 Hz display:
-// at 1x, one second of simulated time passes per second of wall-clock time (1 / DT steps).
+const TRACE_SECONDS = 5;               // simulated seconds shown in panel d (about 50 s at 1x)
+// Playback is measured against the clock, so it is the same on a 60 Hz and a 144 Hz display.
+// At 1x the dish shows PLAYBACK simulated seconds per second: slow enough to follow single
+// particles. SPEEDS are the multiples the speed control offers.
 const SPEEDS = [0.25, 0.5, 1, 2, 4];
-const REAL_TIME_STEPS = 1 / DT;
-// A fresh world starts as a uniform gas; its first WARM_STEPS run fast-forwarded (up to
-// WARM_BOOST times the chosen speed, easing out) so bodies condense within a few seconds.
-const WARM_STEPS = 250;
-const WARM_BOOST = 4;
+const PLAYBACK = 0.1;
+const BASE_STEPS = PLAYBACK / DT;      // steps per second at 1x
+// A fresh world starts as a featureless gas; only its first WARM_STEPS (the first 1.5 simulated
+// seconds) are fast-forwarded, easing out, so the wait for structure is short.
+const WARM_STEPS = Math.round(1.5 / DT);
+const WARM_BOOST = 10;
 // The dish is trimmed only when the device cannot keep the chosen speed: the steps it can
 // afford per second (the worker can spend its whole thread, the main thread about 60% of a
 // frame budget) fall below the requested rate for SLOW_SAMPLES samples (about 2 s).
@@ -62,7 +65,7 @@ const state = {
   revision: 0,
   revisionNote: 'as generated',
   running: true,
-  speedIndex: reducedMotion.matches ? 0 : 1,   // half real time; a quarter under reduced motion
+  speedIndex: reducedMotion.matches ? 1 : 2,   // 1x; half that under reduced motion
   trails: false,
   tool: 'stir',
   seedSpecies: 0,
@@ -89,7 +92,7 @@ const sim = createSimHost(CAPACITY, {
 });
 // Panel d plots a damped copy of the statistics (time constant SMOOTH_TAU of simulated time), so
 // the traces show trends rather than step-to-step jitter and the readouts sort by settled values.
-const SMOOTH_TAU = 0.6;
+const SMOOTH_TAU = 0.15;
 const smoothed = {
   steps: 0, n: 0, S: 0, aggregationAll: 1, meanSpeedAll: 0,
   count: new Float32Array(8), meanSpeed: new Float32Array(8), aggregation: new Float32Array(8),
@@ -777,7 +780,7 @@ function initScrubs() {
     value: state.speedIndex, min: 0, max: SPEEDS.length - 1, step: 1,
     format: (v) => {
       const s = SPEEDS[v];
-      return s === 0.25 ? '¼' : s === 0.5 ? '½' : String(s);   // multiples of real time
+      return s === 0.25 ? '¼' : s === 0.5 ? '½' : String(s);   // multiples of the default playback
     },
     label: 'Simulation speed', pxPerStep: 16,
     onInput(v) { state.speedIndex = v; },
@@ -1038,7 +1041,7 @@ let lastFrame = 0;
 
 /** Steps owed for `wall` seconds at the chosen speed, fast-forwarded while a fresh world condenses. */
 function stepsDue(wall) {
-  let rate = REAL_TIME_STEPS * SPEEDS[state.speedIndex];
+  let rate = BASE_STEPS * SPEEDS[state.speedIndex];
   const steps = sim.view ? sim.view.steps : WARM_STEPS;
   if (!reducedMotion.matches && steps < WARM_STEPS) {
     const left = 1 - steps / WARM_STEPS;
@@ -1098,7 +1101,7 @@ function adaptToDevice(steps) {
   // Dense worlds cost more per step than sparse ones, so this watches the actual cost:
   // a sustained shortfall against the chosen speed trims a quarter of the particles.
   const affordable = STEP_BUDGET_MS[sim.kind] / Math.max(0.1, sim.stepCost);   // steps per second
-  if (affordable < REAL_TIME_STEPS * SPEEDS[state.speedIndex]) slowSamples += 1;
+  if (affordable < BASE_STEPS * SPEEDS[state.speedIndex]) slowSamples += 1;
   else slowSamples = Math.max(0, slowSamples - 2);
   const n0 = sim.view.n;
   if (slowSamples > SLOW_SAMPLES && n0 > 2000) {
@@ -1147,7 +1150,7 @@ function boot() {
 
   axes = createAxes($('dish-axes'));
   forceCurve = createForceCurve($('force'), { aspect: 1.3, minHeight: 170, maxHeight: 260 });
-  traces = createTraces($('traces'), { seconds: 20, aspect: 2.5, minHeight: 200, maxHeight: 240 });
+  traces = createTraces($('traces'), { seconds: TRACE_SECONDS, aspect: 2.5, minHeight: 200, maxHeight: 240 });
   matrix = createMatrix($('matrix'), {
     onHover(i, j) {
       state.hover = { i, j };

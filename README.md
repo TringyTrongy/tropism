@@ -19,7 +19,7 @@ The page is laid out like a figure from a scientific paper, except every panel i
 | **a** · Dish | The simulation: particles of up to eight species on a square whose edges wrap around. Axes are in units of the interaction radius, with a scale bar. | **Drag** to stir, seed new particles, erase, or pan. **Click** a particle to track it and draw its path. **Scroll** or pinch to zoom; zoom far enough and each species shows its plot marker. |
 | **b** · Affinity table | How strongly each species (row) is drawn to every other species (column). Filled discs attract, open rings repel, and area is proportional to strength. | **Drag a disc** up or right to strengthen attraction, down or left toward repulsion. The dish reacts immediately. Arrow keys and +/− work too. |
 | **c** · Force law | The force between the hovered pair as a function of distance. At rest it shows the most lopsided pair, which is the kind that makes chasers. | Hover or tap a disc in **b**. |
-| **d** · Traces | How clumped each species is (aggregation) and how fast it moves, over the last 20 seconds. | Watch the world settle, or not. |
+| **d** · Traces | How clumped each species is (aggregation) and how fast it moves, over the last 5 simulated seconds. | Watch the world settle, or not. |
 | Caption | "Fig. 1": a written description of the experiment. | **Drag any dotted number** in it (particle count, species count, size of the square, core radius, friction, force) to change the world live. |
 
 Along the top: **New world**, **Mutate** (nudges one to three affinities), **Undo / Redo** (every change to the law is a revision), **Copy world code**, **Load a code**, and **Sonify**, which gives each species a voice so you can hear the dish condense.
@@ -81,11 +81,11 @@ A few rules of thumb:
 
 ### Under the hood
 
-- **Physics** (`src/sim.js`): semi-implicit integration at Δ*t* = 0.02 s with velocity damping by half-life. Neighbours come from a uniform grid of cells at least *r*<sub>max</sub> wide, so a step costs O(*N*). Each pair is visited once and both forces are applied with their own affinities. About 4–5 ms per step at 5,000 particles on a laptop.
+- **Physics** (`src/sim.js`): semi-implicit integration at Δ*t* = 0.004 s with velocity damping by half-life. The page plays the dish in slow motion (a tenth of real time at 1×), so single particles are easy to follow. Neighbours come from a uniform grid of cells at least *r*<sub>max</sub> wide, so a step costs O(*N*). Each pair is visited once and both forces are applied with their own affinities. About 4–5 ms per step at 5,000 particles on a laptop.
 - **Off the main thread** (`src/sim-worker.js`, `src/sim-host.js`): the simulation runs in a Web Worker and streams positions back through swapped transferable buffers, so drawing and controls stay smooth even when a dense world costs 15+ ms per step. If a Worker cannot start, the same code runs on the main thread.
 - **Rendering** (`src/render.js`): WebGL2 instanced quads with a signed-distance marker per species (circle, square, triangle, diamond, …), antialiased, with ink-over-paper compositing in both themes. There is a Canvas2D fallback with the same behaviour.
 - **Reproducible worlds** (`src/genome.js`): a world code like `t1.5…` stores the table, every parameter and the random seed. The same code rebuilds the same starting state, and the simulation replays identically until someone touches the dish.
-- **Accessible by design**: species are told apart by marker shape as well as colour (Okabe–Ito colour-blind-safe palette). Every control works from the keyboard. Speed is measured in real time, so it is the same on any display; reduced-motion settings run the dish at a quarter speed. Light and dark themes follow your system.
+- **Accessible by design**: species are told apart by marker shape as well as colour (Okabe–Ito colour-blind-safe palette). Every control works from the keyboard. Playback speed is measured against the clock, so it is the same on any display; reduced-motion settings halve it. Light and dark themes follow your system.
 - **No dependencies, no build step** for development: plain ES modules, hand-written SVG plots, Web Audio for sound.
 
 ## Run it locally
