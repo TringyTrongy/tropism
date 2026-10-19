@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Renderer harness</title>
+<meta name="description" content="Visual check of the Tropism dish renderer against a synthetic world.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,500;1,400&display=swap">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  /* Harness layout only; every colour and face comes from the tokens in styles.css. */
+  html { background: var(--paper); }
+  body.harness {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 var(--fs-ui)/1.45 var(--font-label);
+    font-variant-numeric: tabular-nums;
+    -webkit-text-size-adjust: 100%;
+  }
+  .harness ::selection { background: var(--select); color: var(--ink); }
+  .harness :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  .h-wrap { max-width: 1320px; margin: 0 auto; padding: var(--gap-6) var(--gap-4) var(--gap-8); box-sizing: border-box; }
+
+  .h-head { max-width: 72ch; }
+  .h-title { font: 600 var(--fs-title)/1.1 var(--font-label); letter-spacing: -0.01em; margin: 0 0 var(--gap-3); }
+  .h-sub { font: 400 var(--fs-caption)/1.5 var(--font-text); color: var(--ink-2); margin: 0; }
+  .h-sub b { font: 700 1em/1 var(--font-label); color: var(--ink); }
+  .h-sub code { font: 400 0.88em/1 var(--font-code); color: var(--ink); }
+
+  .h-figure {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: var(--gap-6);
+    margin-top: var(--gap-6);
+    align-items: start;
+  }
+
+  .h-panel-head { display: flex; align-items: baseline; gap: var(--gap-3); margin-bottom: var(--gap-3); }
+  .h-letter { font: 700 var(--fs-panel)/1 var(--font-label); }
+  .h-panel-title { font: 500 var(--fs-label)/1 var(--font-label); color: var(--ink-2); }
+  .h-kind { margin-left: auto; font: 500 var(--fs-tick)/1 var(--font-label); color: var(--ink-3); letter-spacing: 0.04em; text-transform: uppercase; }
+
+  .h-dish {
+    position: relative;
+    width: min(100%, max(280px, calc(100svh - 190px)));
+    aspect-ratio: 1 / 1;
+    outline: 1px solid var(--ink);      /* the bare figure frame, outside the drawn pixels */
+  }
+  .h-dish canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: grab;
+  }
+  .h-dish canvas.is-dragging { cursor: grabbing; }
+  .h-dish canvas:focus-visible { outline-offset: 3px; }
+  .h-cross { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .h-cross line { stroke: var(--ink); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .h-cross[hidden] { display: none; }
+
+  .h-pointer { margin: var(--gap-3) 0 0; font: 400 var(--fs-label)/1.4 var(--font-label); color: var(--ink-2); min-height: 1.4em; }
+  .h-pointer i { font-family: var(--font-text); font-style: italic; }
+
+  .h-controls { display: grid; gap: var(--gap-5); min-width: 0; }
+  .h-group { border: 0; padding: 0; margin: 0; min-width: 0; }
+  .h-group > legend, .h-label {
+    display: block;
+    padding: 0;
+    margin: 0 0 var(--gap-2);
+    font: 500 var(--fs-axis)/1 var(--font-label);
+    color: var(--ink-2);
+  }
+  .h-options { display: flex; flex-wrap: wrap; gap: var(--gap-1); }
+  .h-note { margin: var(--gap-2) 0 0; font: 400 var(--fs-tick)/1.4 var(--font-label); color: var(--ink-3); }
+
+  .h-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--rule);
+    border-radius: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 500 var(--fs-label)/1 var(--font-label);
+    font-variant-numeric: tabular-nums;
+    text-decoration: none;
+    cursor: pointer;
+    box-sizing: border-box;
+  }
+  .h-btn:hover { border-color: var(--ink-3); }
+  .h-btn[aria-pressed="true"], .h-btn[aria-current="page"] { border-color: var(--ink); background: var(--hilite-2); }
+  .h-btn:disabled { color: var(--ink-3); border-color: var(--rule-faint); cursor: not-allowed; }
+  .h-btn .marker { display: block; }
+
+  .h-check { display: flex; align-items: center; gap: var(--gap-2); min-height: 28px; cursor: pointer; }
+  .h-check input { accent-color: var(--ink); width: 15px; height: 15px; margin: 0; }
+  .h-radio { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; margin-right: var(--gap-3); cursor: pointer; }
+  .h-radio input { accent-color: var(--ink); margin: 0; }
+
+  .h-field { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--gap-2) var(--gap-3); }
+  .h-field label { font: 500 var(--fs-axis)/1 var(--font-label); color: var(--ink-2); }
+  .h-field output { font: 600 var(--fs-label)/1 var(--font-label); font-variant-numeric: tabular-nums; min-width: 5ch; text-align: right; }
+  .h-field input[type="range"] { accent-color: var(--ink); width: 100%; margin: 0; }
+  .h-select {
+    font: 500 var(--fs-label)/1 var(--font-label);
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 0;
+    min-height: 30px;
+    padding: 0 var(--gap-2);
+  }
+
+  kbd {
+    display: inline-block;
+    min-width: 1.4em;
+    padding: 1px 4px;
+    border: 1px solid var(--rule);
+    font: 500 var(--fs-tick)/1.2 var(--font-label);
+    color: var(--ink-3);
+    text-align: center;
+    box-sizing: border-box;
+  }
+
+  .h-stats {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px var(--gap-4);
+    margin: 0;
+    padding-top: var(--gap-4);
+    border-top: 1px solid var(--rule);
+  }
+  .h-stats dt { font: 500 var(--fs-axis)/1.3 var(--font-label); color: var(--ink-3); }
+  .h-stats dd { margin: 0; font: 600 var(--fs-label)/1.3 var(--font-label); font-variant-numeric: tabular-nums; text-align: right; }
+
+  .h-checks { margin-top: var(--gap-7); max-width: 74ch; }
+  .h-checks h2 { font: 600 var(--fs-panel)/1.2 var(--font-label); margin: 0 0 var(--gap-3); }
+  .h-checks ol { margin: 0; padding-left: 1.4em; font: 400 var(--fs-caption)/1.5 var(--font-text); color: var(--ink-2); }
+  .h-checks li { margin: 0 0 var(--gap-2); padding-left: var(--gap-1); }
+  .h-checks li::marker { font: 600 var(--fs-label)/1 var(--font-label); color: var(--ink); }
+  .h-checks b { font: 600 0.92em/1 var(--font-label); color: var(--ink); }
+
+  @media (max-width: 900px) {
+    .h-figure { grid-template-columns: minmax(0, 1fr); }
+    .h-dish { width: 100%; }
+  }
+</style>
+</head>
+<body class="harness">
+<div class="h-wrap">
+  <header class="h-head">
+    <h1 class="h-title">Renderer harness</h1>
+    <p class="h-sub">Panel <b>a</b> of Tropism, drawn by <code>src/render.js</code> from a synthetic world. There is no engine here: drifting bodies, a lattice and a marker specimen move by simple formulas, so the torus mapping, the markers, the blending, the trails and the tracked path can be checked by eye.</p>
+  </header>
+
+  <main class="h-figure">
+    <section aria-labelledby="panel-a scene-title">
+      <div class="h-panel-head">
+        <span class="h-letter" id="panel-a">a</span>
+        <span class="h-panel-title" id="scene-title">Dish</span>
+        <span class="h-kind" id="kind"></span>
+      </div>
+      <div class="h-dish" id="dish">
+        <canvas id="canvas" tabindex="0" role="application" aria-roledescription="dish"
+          aria-label="Dish. Drag or use the arrow keys to pan, scroll or press plus and minus to zoom, 0 resets the view."></canvas>
+        <svg class="h-cross" id="cross" hidden aria-hidden="true">
+          <line id="cross-h1"></line><line id="cross-h2"></line><line id="cross-v1"></line><line id="cross-v2"></line>
+        </svg>
+      </div>
+      <p class="h-pointer" id="pointer">Hover the dish to read world coordinates.</p>
+    </section>
+
+    <aside class="h-controls" aria-label="Harness controls">
+      <fieldset class="h-group">
+        <legend>Scene</legend>
+        <label class="h-radio"><input type="radio" name="scene" value="bodies" checked> Bodies</label>
+        <label class="h-radio"><input type="radio" name="scene" value="lattice"> Lattice</label>
+        <label class="h-radio"><input type="radio" name="scene" value="specimen"> Specimen</label>
+        <p class="h-note" id="scene-note"></p>
+      </fieldset>
+
+      <div class="h-field">
+        <label for="species">Species</label>
+        <select class="h-select" id="species">
+          <option>2</option><option>3</option><option>4</option><option>5</option>
+          <option selected>6</option><option>7</option><option>8</option>
+        </select>
+        <span></span>
+        <label for="count">Particles</label>
+        <input type="range" id="count" min="500" max="12000" step="100" value="5000">
+        <output id="count-out" for="count">5000</output>
+      </div>
+
+      <fieldset class="h-group">
+        <legend>Draw</legend>
+        <label class="h-check"><input type="checkbox" id="trails"> Trails <kbd>T</kbd></label>
+        <label class="h-check"><input type="checkbox" id="path" checked> Tracked path <kbd>P</kbd></label>
+        <label class="h-check"><input type="checkbox" id="pause"> Pause motion <kbd>Space</kbd></label>
+      </fieldset>
+
+      <fieldset class="h-group">
+        <legend>Highlight <kbd>H</kbd></legend>
+        <div class="h-options" id="highlight"></div>
+      </fieldset>
+
+      <fieldset class="h-group">
+        <legend>View</legend>
+        <div class="h-options">
+          <button type="button" class="h-btn" id="zoom-in">Zoom in <kbd>+</kbd></button>
+          <button type="button" class="h-btn" id="zoom-out">Zoom out <kbd>-</kbd></button>
+          <button type="button" class="h-btn" id="zoom-reset">Reset <kbd>0</kbd></button>
+        </div>
+        <p class="h-note">Drag the dish to pan, scroll to zoom about the cursor. Arrow keys pan by a tenth of the view.</p>
+      </fieldset>
+
+      <fieldset class="h-group">
+        <legend>Theme <kbd>D</kbd></legend>
+        <div class="h-options" id="theme">
+          <button type="button" class="h-btn" data-theme-choice="light">Light</button>
+          <button type="button" class="h-btn" data-theme-choice="dark">Dark</button>
+          <button type="button" class="h-btn" data-theme-choice="system">System</button>
+        </div>
+      </fieldset>
+
+      <div class="h-field">
+        <label for="dpr">Pixel ratio</label>
+        <select class="h-select" id="dpr">
+          <option value="device" selected>Device</option>
+          <option value="1">1</option><option value="1.5">1.5</option>
+          <option value="2">2</option><option value="3">3</option>
+        </select>
+        <span></span>
+      </div>
+
+      <fieldset class="h-group">
+        <legend>Renderer</legend>
+        <div class="h-options">
+          <a class="h-btn" id="use-webgl2" href="?renderer=webgl2">WebGL2</a>
+          <a class="h-btn" id="use-canvas2d" href="?renderer=canvas2d">Canvas2D</a>
+        </div>
+        <div class="h-options" style="margin-top: var(--gap-2)">
+          <button type="button" class="h-btn" id="lose">Lose context</button>
+          <button type="button" class="h-btn" id="restore" disabled>Restore context</button>
+        </div>
+      </fieldset>
+
+      <dl class="h-stats" aria-label="Renderer readouts">
+        <dt>Renderer</dt><dd id="s-kind">none</dd>
+        <dt>Draw call, CPU</dt><dd id="s-draw">0.00 ms</dd>
+        <dt>Frame rate</dt><dd id="s-fps">0 fps</dd>
+        <dt>Marker radius</dt><dd id="s-radius">0.00 px</dd>
+        <dt>Dish</dt><dd id="s-dish">0 px</dd>
+        <dt>View</dt><dd id="s-view">0.500, 0.500 at 1.00</dd>
+        <dt>Context</dt><dd id="s-context">live</dd>
+      </dl>
+    </aside>
+  </main>
+
+  <section class="h-checks" aria-labelledby="checks-title">
+    <h2 id="checks-title">What correct looks like</h2>
+    <ol>
+      <li><b>Dots.</b> At zoom 1 the 5000 particles of Bodies read as separate, crisp dots; where bodies overlap, light paper darkens like ink and the dark print brightens.</li>
+      <li><b>Seam.</b> In Lattice, rows and columns stay straight and evenly spaced as they cross every dish edge, at any pan and zoom; no column doubles or goes missing.</li>
+      <li><b>Markers.</b> Specimen opens at zoom 8 centred on the corner of the world, so both seams run through it. Each column shows its own marker (circle, square, triangle, diamond, down-triangle, plus, cross, star) with clean 1&nbsp;px edges and nothing cut at the seams. The bottom row overlaps neighbouring species to show the blend.</li>
+      <li><b>Highlight.</b> Every species except the chosen one drops to about a fifth of its ink.</li>
+      <li><b>Trails.</b> Moving bodies leave short streaks. Pause motion and the streaks fade completely back to paper, with no grey haze left behind. Panning or zooming resets them.</li>
+      <li><b>Path.</b> The tracked particle carries a hairline that fades with age and a 7&nbsp;px ring at its head. The line is continuous where it crosses the world&rsquo;s own seam inside a panned view, and breaks only where it leaves one edge of the dish and re-enters at the opposite edge.</li>
+      <li><b>Pointer.</b> The crosshair sits exactly under the cursor at every pan and zoom, and the round trip reads 0.000&nbsp;px.</li>
+      <li><b>Context.</b> Lose context, then restore: drawing resumes with markers, trails and path intact. The Canvas2D renderer draws the same scenes, with squares in place of markers below a 4.2&nbsp;px radius.</li>
+    </ol>
+  </section>
+</div>
+
+<script type="module">
+import { createRenderer } from '../src/render.js';
+import { SPECIES, markerSVG, currentTheme } from '../src/markers.js';
+
+// ------------------------------------------------------------------ renderer
+
+const params = new URLSearchParams(location.search);
+const prefer = params.get('renderer') === 'canvas2d' ? 'canvas2d' : 'webgl2';
+const canvas = document.getElementById('canvas');
+const dish = document.getElementById('dish');
+const renderer = createRenderer(canvas, { prefer });
+
+document.getElementById('kind').textContent = renderer.kind;
+document.getElementById('s-kind').textContent = renderer.kind;
+document.getElementById(renderer.kind === 'webgl2' ? 'use-webgl2' : 'use-canvas2d').setAttribute('aria-current', 'page');
+
+// ------------------------------------------------------------------ synthetic world
+
+const CAPACITY = 12001;                       // 12000 particles plus the tracked one
+const world = {
+  n: 0, S: 6, steps: 0,
+  x: new Float32Array(CAPACITY),
+  y: new Float32Array(CAPACITY),
+  species: new Uint8Array(CAPACITY),
+};
+
+// Per-particle parameters for the formulas (allocated once).
+const pRadius = new Float32Array(CAPACITY);   // fraction of the body radius (bodies) / grid column (lattice)
+const pAngle = new Float32Array(CAPACITY);    // initial angle (bodies) / grid row (lattice)
+const pBody = new Int16Array(CAPACITY);       // body index, or -1 for free gas
+const pVx = new Float32Array(CAPACITY);
+const pVy = new Float32Array(CAPACITY);
+
+const BODIES = 9;
+const body = {
+  x: new Float32Array(BODIES), y: new Float32Array(BODIES),
+  vx: new Float32Array(BODIES), vy: new Float32Array(BODIES),
+  r: new Float32Array(BODIES), spin: new Float32Array(BODIES), phase: new Float32Array(BODIES),
+};
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const wrap = (v) => v - Math.floor(v);
+
+const state = {
+  scene: 'bodies',
+  S: 6,
+  count: 5000,
+  trails: false,
+  path: true,
+  paused: false,
+  highlight: -1,
+  view: { cx: 0.5, cy: 0.5, zoom: 1 },        // unwrapped; the renderer wraps
+  dpr: 'device',
+  time: 0,
+};
+
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const timeScale = () => (reducedMotion.matches ? 0.4 : 1);
+
+let baseN = 0;   // particles of the scene itself; the tracked particle sits at index baseN
+
+function buildScene() {
+  const rnd = mulberry32(0x7a51 + state.S * 31 + state.count);
+  const S = state.S;
+  world.S = S;
+  if (state.scene === 'bodies') {
+    baseN = state.count;
+    for (let b = 0; b < BODIES; b++) {
+      body.x[b] = rnd();
+      body.y[b] = rnd();
+      const a = rnd() * Math.PI * 2;
+      const speed = 0.006 + rnd() * 0.014;
+      body.vx[b] = Math.cos(a) * speed;
+      body.vy[b] = Math.sin(a) * speed;
+      body.r[b] = 0.035 + rnd() * 0.04;
+      body.spin[b] = (rnd() < 0.5 ? -1 : 1) * (0.25 + rnd() * 0.5);
+      body.phase[b] = rnd() * Math.PI * 2;
+    }
+    for (let i = 0; i < baseN; i++) {
+      if (i % 5 === 0) {
+        // free gas between the bodies
+        pBody[i] = -1;
+        pRadius[i] = rnd();
+        pAngle[i] = rnd();
+        const a = rnd() * Math.PI * 2;
+        const speed = 0.004 + rnd() * 0.02;
+        pVx[i] = Math.cos(a) * speed;
+        pVy[i] = Math.sin(a) * speed;
+        world.species[i] = i % S;
+      } else {
+        const b = i % BODIES;
+        pBody[i] = b;
+        pRadius[i] = Math.sqrt(rnd());
+        pAngle[i] = rnd() * Math.PI * 2;
+        // a core of one species inside a membrane of the next
+        world.species[i] = pRadius[i] > 0.8 ? (b + 1) % S : b % S;
+      }
+    }
+  } else if (state.scene === 'lattice') {
+    // A complete m x m grid whose column count is a multiple of S, so neither the spacing nor
+    // the species sequence has a seam of its own: any break at a dish edge is the renderer's.
+    const m = Math.max(S, Math.floor(Math.sqrt(state.count) / S) * S);
+    baseN = m * m;
+    for (let i = 0; i < baseN; i++) {
+      const col = i % m;
+      const row = Math.floor(i / m);
+      pRadius[i] = (col + 0.5) / m;
+      pAngle[i] = (row + 0.5) / m;
+      world.species[i] = col % S;
+    }
+  } else {
+    // Specimen: one column per species, four markers each, centred on the world corner (0, 0),
+    // plus a bottom row of overlapping neighbours to show the blend.
+    const gap = 0.012;
+    let i = 0;
+    for (let s = 0; s < S; s++) {
+      const x = (s - (S - 1) / 2) * gap;
+      for (let row = 0; row < 4; row++) {
+        pRadius[i] = wrap(x);
+        pAngle[i] = wrap((row - 2) * gap);
+        world.species[i++] = s;
+      }
+      pRadius[i] = wrap(x - 0.0022);
+      pAngle[i] = wrap(2.2 * gap);
+      world.species[i++] = s;
+      pRadius[i] = wrap(x + 0.0022);
+      pAngle[i] = wrap(2.2 * gap + 0.0012);
+      world.species[i++] = (s + 1) % S;
+    }
+    baseN = i;
+  }
+  world.species[baseN] = 0;   // the tracked particle
+  updateScene(state.time);
+  sceneNote();
+}
+
+function updateScene(t) {
+  if (state.scene === 'bodies') {
+    for (let i = 0; i < baseN; i++) {
+      const b = pBody[i];
+      if (b < 0) {
+        world.x[i] = wrap(pRadius[i] + pVx[i] * t + 0.004 * Math.sin(1.3 * t + i));
+        world.y[i] = wrap(pAngle[i] + pVy[i] * t + 0.004 * Math.cos(1.1 * t + i));
+      } else {
+        const breathe = 1 + 0.07 * Math.sin(0.8 * t + body.phase[b]);
+        const rr = pRadius[i] * body.r[b] * breathe;
+        const a = pAngle[i] + body.spin[b] * t * (1.25 - pRadius[i]);   // differential rotation
+        const cx = body.x[b] + body.vx[b] * t + 0.02 * Math.sin(0.37 * t + body.phase[b]);
+        const cy = body.y[b] + body.vy[b] * t + 0.02 * Math.cos(0.29 * t + body.phase[b]);
+        world.x[i] = wrap(cx + rr * Math.cos(a));
+        world.y[i] = wrap(cy + rr * Math.sin(a));
+      }
+    }
+  } else if (state.scene === 'lattice') {
+    const dx = 0.011 * t, dy = 0.007 * t;
+    for (let i = 0; i < baseN; i++) {
+      world.x[i] = wrap(pRadius[i] + dx);
+      world.y[i] = wrap(pAngle[i] + dy);
+    }
+  } else {
+    for (let i = 0; i < baseN; i++) {
+      world.x[i] = pRadius[i];
+      world.y[i] = pAngle[i];
+    }
+  }
+  // The tracked particle drifts steadily in x, so its path crosses the world seam every ~15 s.
+  const hx = wrap(0.31 + 0.065 * t + 0.03 * Math.sin(1.1 * t));
+  const hy = wrap(0.5 + 0.27 * Math.sin(0.23 * t) + 0.03 * Math.cos(1.9 * t));
+  world.x[baseN] = hx;
+  world.y[baseN] = hy;
+  world.n = baseN + (state.path ? 1 : 0);
+  world.steps++;
+}
+
+// ------------------------------------------------------------------ tracked path history
+
+const PATH_POINTS = 480;
+const path = new Float32Array(PATH_POINTS * 2);
+let pathLength = 0;
+
+function pushPath(x, y) {
+  if (pathLength === PATH_POINTS) {
+    path.copyWithin(0, 2);
+    pathLength--;
+  }
+  path[2 * pathLength] = x;
+  path[2 * pathLength + 1] = y;
+  pathLength++;
+}
+
+const drawOpts = { trails: false, highlight: -1, path: null, pathLength: 0 };
+
+// ------------------------------------------------------------------ sizing
+
+let cssSide = 1;
+let lastDpr = 0;
+let box = null;   // the dish's latest content box, as the ResizeObserver reported it
+
+function devicePixelRatioNow() {
+  return state.dpr === 'device' ? window.devicePixelRatio || 1 : Number(state.dpr);
+}
+
+/** Sizes the renderer to the dish box (the observer's fractional size once known) and the chosen ratio. */
+function applySize() {
+  const w = box ? box.width : dish.clientWidth;
+  const h = box ? box.height : dish.clientHeight;
+  lastDpr = devicePixelRatioNow();
+  cssSide = Math.max(1, Math.min(w, h));
+  renderer.resize(w, h, lastDpr);
+}
+
+new ResizeObserver((entries) => {
+  const rect = entries[entries.length - 1].contentRect;
+  box = { width: rect.width, height: rect.height };
+  applySize();
+}).observe(dish);
+
+// ------------------------------------------------------------------ view
+
+function setView(cx, cy, zoom) {
+  state.view.zoom = Math.min(64, Math.max(1, zoom));
+  state.view.cx = cx;
+  state.view.cy = cy;
+  renderer.setView(state.view);
+}
+
+function resetView() {
+  if (state.scene === 'specimen') setView(0, 0, 8);
+  else setView(0.5, 0.5, 1);
+}
+
+/** d mod 1 as the nearest signed offset, in [-0.5, 0.5]. */
+const nearest = (d) => d - Math.round(d);
+
+function zoomAbout(factor, px, py) {
+  const v = state.view;
+  const nextZoom = Math.min(64, Math.max(1, v.zoom * factor));
+  if (nextZoom === v.zoom) return;
+  // Keep the world point under (px, py) fixed. The anchor comes from the renderer's own
+  // mapping, so the harness can never disagree with it about where the dish is.
+  const [wx, wy] = renderer.screenToWorld(px, py);
+  const dx = nearest(wx - v.cx);
+  const dy = nearest(wy - v.cy);
+  const keep = 1 - v.zoom / nextZoom;
+  setView(v.cx + dx * keep, v.cy + dy * keep, nextZoom);
+}
+
+function pan(du, dv) {
+  const span = 1 / state.view.zoom;
+  setView(state.view.cx + du * span, state.view.cy + dv * span, state.view.zoom);
+}
+
+// ------------------------------------------------------------------ pointer: pan, zoom, crosshair
+
+const cross = document.getElementById('cross');
+const crossLines = ['cross-h1', 'cross-h2', 'cross-v1', 'cross-v2'].map((id) => document.getElementById(id));
+const pointerOut = document.getElementById('pointer');
+let drag = null;
+
+function localPoint(event) {
+  const rect = canvas.getBoundingClientRect();
+  return [event.clientX - rect.left, event.clientY - rect.top];
+}
+
+function showCrosshair(px, py) {
+  const [wx, wy] = renderer.screenToWorld(px, py);
+  const back = renderer.worldToScreen(wx, wy);
+  if (!back) {
+    cross.hidden = true;
+    pointerOut.textContent = 'Outside the dish.';
+    return;
+  }
+  const [bx, by] = back;
+  const err = Math.hypot(bx - px, by - py);
+  const arm = 9, gap = 3;
+  crossLines[0].setAttribute('x1', bx - arm - gap); crossLines[0].setAttribute('x2', bx - gap);
+  crossLines[0].setAttribute('y1', by); crossLines[0].setAttribute('y2', by);
+  crossLines[1].setAttribute('x1', bx + gap); crossLines[1].setAttribute('x2', bx + gap + arm);
+  crossLines[1].setAttribute('y1', by); crossLines[1].setAttribute('y2', by);
+  crossLines[2].setAttribute('x1', bx); crossLines[2].setAttribute('x2', bx);
+  crossLines[2].setAttribute('y1', by - arm - gap); crossLines[2].setAttribute('y2', by - gap);
+  crossLines[3].setAttribute('x1', bx); crossLines[3].setAttribute('x2', bx);
+  crossLines[3].setAttribute('y1', by + gap); crossLines[3].setAttribute('y2', by + gap + arm);
+  cross.hidden = false;
+  pointerOut.innerHTML = `<i>x</i> = ${wx.toFixed(4)}, <i>y</i> = ${wy.toFixed(4)} &middot; round trip ${err.toFixed(3)} px`;
+}
+
+canvas.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0) return;
+  canvas.setPointerCapture(event.pointerId);
+  const [px, py] = localPoint(event);
+  drag = { id: event.pointerId, px, py, cx: state.view.cx, cy: state.view.cy };
+  canvas.classList.add('is-dragging');
+});
+
+canvas.addEventListener('pointermove', (event) => {
+  const [px, py] = localPoint(event);
+  if (drag && event.pointerId === drag.id) {
+    const span = 1 / state.view.zoom;
+    setView(drag.cx - ((px - drag.px) / cssSide) * span, drag.cy - ((py - drag.py) / cssSide) * span, state.view.zoom);
+  }
+  showCrosshair(px, py);
+});
+
+function endDrag(event) {
+  if (!drag || event.pointerId !== drag.id) return;
+  drag = null;
+  canvas.classList.remove('is-dragging');
+}
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+canvas.addEventListener('lostpointercapture', endDrag);   // capture can be taken away mid-drag
+canvas.addEventListener('pointerleave', () => {
+  if (drag) return;
+  cross.hidden = true;
+  pointerOut.textContent = 'Hover the dish to read world coordinates.';
+});
+
+canvas.addEventListener('wheel', (event) => {
+  event.preventDefault();
+  const [px, py] = localPoint(event);
+  const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+  zoomAbout(Math.exp(-delta * 0.0015), px, py);
+  showCrosshair(px, py);
+}, { passive: false });
+
+// ------------------------------------------------------------------ controls
+
+const sceneNoteEl = document.getElementById('scene-note');
+const sceneTitle = document.getElementById('scene-title');
+const countInput = document.getElementById('count');
+const countOut = document.getElementById('count-out');
+
+function sceneNote() {
+  const notes = {
+    bodies: ['Dish, drifting bodies', 'Nine bodies with membranes and a free gas. Check dots, overlaps, highlight and trails.'],
+    lattice: ['Dish, drifting lattice', `A complete ${Math.round(Math.sqrt(baseN))} × ${Math.round(Math.sqrt(baseN))} grid (${baseN} particles) drifting diagonally. Pan across the seams: rows must stay straight.`],
+    specimen: ['Dish, marker specimen', 'Opens at zoom 8 on the world corner; the particle count is fixed.'],
+  };
+  const [title, note] = notes[state.scene];
+  sceneTitle.textContent = title;
+  sceneNoteEl.textContent = note;
+  countInput.disabled = state.scene === 'specimen';
+}
+
+for (const input of document.querySelectorAll('input[name="scene"]')) {
+  input.addEventListener('change', () => {
+    if (!input.checked) return;
+    state.scene = input.value;
+    buildScene();
+    resetView();
+  });
+}
+
+document.getElementById('species').addEventListener('change', (event) => {
+  state.S = Number(event.target.value);
+  if (state.highlight >= state.S) state.highlight = -1;
+  buildScene();
+  buildHighlightButtons();
+});
+
+countInput.addEventListener('input', () => {
+  state.count = Number(countInput.value);
+  countOut.textContent = String(state.count);
+  buildScene();
+});
+
+const trailsInput = document.getElementById('trails');
+const pathInput = document.getElementById('path');
+const pauseInput = document.getElementById('pause');
+
+trailsInput.addEventListener('change', () => { state.trails = trailsInput.checked; });
+pathInput.addEventListener('change', () => {
+  state.path = pathInput.checked;
+  pathLength = 0;
+});
+pauseInput.addEventListener('change', () => { state.paused = pauseInput.checked; });
+
+// Highlight: one button per live species, each pairing the marker with its letter.
+const highlightBox = document.getElementById('highlight');
+
+function buildHighlightButtons() {
+  // Rebuilding (theme or species change) must not drop keyboard focus to <body>.
+  const active = document.activeElement;
+  const focused = active && highlightBox.contains(active) ? active.dataset.species : null;
+  highlightBox.replaceChildren();
+  const none = document.createElement('button');
+  none.type = 'button';
+  none.className = 'h-btn';
+  none.textContent = 'None';
+  none.dataset.species = '-1';
+  highlightBox.append(none);
+  const theme = currentTheme();
+  for (let s = 0; s < state.S; s++) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'h-btn';
+    button.dataset.species = String(s);
+    button.setAttribute('aria-label', `Highlight species ${SPECIES[s].letter}`);
+    button.append(markerSVG(s, 12, theme), document.createTextNode(SPECIES[s].letter));
+    highlightBox.append(button);
+  }
+  syncHighlight();
+  if (focused !== null) {
+    (highlightBox.querySelector(`button[data-species="${focused}"]`) || none).focus();
+  }
+}
+
+function syncHighlight() {
+  for (const button of highlightBox.children) {
+    button.setAttribute('aria-pressed', String(Number(button.dataset.species) === state.highlight));
+  }
+}
+
+highlightBox.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-species]');
+  if (!button) return;
+  state.highlight = Number(button.dataset.species);
+  syncHighlight();
+});
+
+document.getElementById('zoom-in').addEventListener('click', () => zoomAbout(1.5, dish.clientWidth / 2, dish.clientHeight / 2));
+document.getElementById('zoom-out').addEventListener('click', () => zoomAbout(1 / 1.5, dish.clientWidth / 2, dish.clientHeight / 2));
+document.getElementById('zoom-reset').addEventListener('click', resetView);
+
+// Theme: Light / Dark force data-theme on <html>; System follows prefers-color-scheme.
+const themeBox = document.getElementById('theme');
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+let themeChoice = 'system';
+
+function applyTheme(choice) {
+  themeChoice = choice;
+  if (choice === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', choice);
+  for (const button of themeBox.querySelectorAll('button')) {
+    button.setAttribute('aria-pressed', String(button.dataset.themeChoice === choice));
+  }
+  renderer.refreshTheme();
+  buildHighlightButtons();
+}
+
+themeBox.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-theme-choice]');
+  if (button) applyTheme(button.dataset.themeChoice);
+});
+darkQuery.addEventListener('change', () => { if (themeChoice === 'system') applyTheme('system'); });
+
+document.getElementById('dpr').addEventListener('change', (event) => {
+  state.dpr = event.target.value;
+  applySize();
+});
+
+// Context loss (WebGL2 only): WEBGL_lose_context fires the real lost/restored events.
+const loseButton = document.getElementById('lose');
+const restoreButton = document.getElementById('restore');
+const gl = renderer.kind === 'webgl2' ? canvas.getContext('webgl2') : null;
+const loseExt = gl ? gl.getExtension('WEBGL_lose_context') : null;
+if (!loseExt) {
+  loseButton.disabled = true;
+  loseButton.title = renderer.kind === 'webgl2' ? 'WEBGL_lose_context is not available' : 'Canvas2D has no context to lose';
+}
+loseButton.addEventListener('click', () => {
+  loseExt.loseContext();
+  loseButton.disabled = true;
+  restoreButton.disabled = false;
+});
+restoreButton.addEventListener('click', () => {
+  loseExt.restoreContext();
+  restoreButton.disabled = true;
+  loseButton.disabled = false;
+});
+
+// Keyboard shortcuts (not while typing in a form field).
+document.addEventListener('keydown', (event) => {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  const tag = event.target.tagName;
+  if (tag === 'SELECT' || (tag === 'INPUT' && event.target.type === 'range')) return;
+  const onButton = tag === 'BUTTON' || tag === 'A' || tag === 'INPUT';
+  const key = event.key;
+  if (key === 't' || key === 'T') { trailsInput.click(); }
+  else if (key === 'p' || key === 'P') { pathInput.click(); }
+  else if (key === ' ' && !onButton) { event.preventDefault(); pauseInput.click(); }
+  else if (key === 'h' || key === 'H') {
+    state.highlight = state.highlight + 1 >= state.S ? -1 : state.highlight + 1;
+    syncHighlight();
+  } else if (key === 'd' || key === 'D') {
+    applyTheme(themeChoice === 'light' ? 'dark' : themeChoice === 'dark' ? 'system' : 'light');
+  } else if (key === '+' || key === '=') { zoomAbout(1.25, dish.clientWidth / 2, dish.clientHeight / 2); }
+  else if (key === '-' || key === '_') { zoomAbout(0.8, dish.clientWidth / 2, dish.clientHeight / 2); }
+  else if (key === '0') { resetView(); }
+  else if (event.target === canvas && key.startsWith('Arrow')) {
+    event.preventDefault();
+    if (key === 'ArrowLeft') pan(-0.1, 0);
+    if (key === 'ArrowRight') pan(0.1, 0);
+    if (key === 'ArrowUp') pan(0, -0.1);
+    if (key === 'ArrowDown') pan(0, 0.1);
+  }
+});
+
+// ------------------------------------------------------------------ readouts
+
+const out = {
+  draw: document.getElementById('s-draw'),
+  fps: document.getElementById('s-fps'),
+  radius: document.getElementById('s-radius'),
+  dish: document.getElementById('s-dish'),
+  view: document.getElementById('s-view'),
+  context: document.getElementById('s-context'),
+};
+let drawSum = 0, drawFrames = 0, lastReadout = 0, framesSinceReadout = 0;
+
+function updateReadouts(now) {
+  const elapsed = (now - lastReadout) / 1000;
+  out.draw.textContent = `${(drawFrames ? drawSum / drawFrames : 0).toFixed(2)} ms`;
+  out.fps.textContent = `${Math.round(framesSinceReadout / elapsed)} fps`;
+  const m = typeof renderer.metrics === 'function' ? renderer.metrics() : null;
+  if (m) {
+    out.radius.textContent = `${m.radiusPx.toFixed(2)} px`;
+    out.dish.textContent = `${m.dishPx} px at ${m.dpr}x`;
+    out.context.textContent = m.contextLost ? 'lost' : 'live';
+  }
+  const v = state.view;
+  out.view.textContent = `${wrap(v.cx).toFixed(3)}, ${wrap(v.cy).toFixed(3)} at ${v.zoom.toFixed(2)}`;
+  drawSum = 0;
+  drawFrames = 0;
+  framesSinceReadout = 0;
+  lastReadout = now;
+}
+
+// ------------------------------------------------------------------ frame loop
+
+let lastFrame = performance.now();
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastFrame) / 1000);
+  lastFrame = now;
+  if (devicePixelRatioNow() !== lastDpr) applySize();
+  if (!state.paused) state.time += dt * timeScale();
+  updateScene(state.time);
+  if (state.path && !state.paused) pushPath(world.x[baseN], world.y[baseN]);
+
+  drawOpts.trails = state.trails;
+  drawOpts.highlight = state.highlight;
+  drawOpts.path = state.path && pathLength > 0 ? path : null;
+  drawOpts.pathLength = state.path ? pathLength : 0;
+
+  const t0 = performance.now();
+  renderer.draw(world, drawOpts);
+  drawSum += performance.now() - t0;
+  drawFrames++;
+  framesSinceReadout++;
+  if (now - lastReadout > 400) updateReadouts(now);
+  requestAnimationFrame(frame);
+}
+
+buildScene();
+buildHighlightButtons();
+applyTheme('system');
+applySize();
+resetView();
+requestAnimationFrame((now) => { lastReadout = now; lastFrame = now; frame(now); });
+</script>
+</body>
+</html>

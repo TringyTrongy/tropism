@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Scrub harness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html { background: var(--paper); }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 var(--fs-ui)/1.5 var(--font-label);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection { background: var(--hilite-2); color: var(--ink); }
+
+  .sheet {
+    box-sizing: border-box;
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: var(--gap-7) var(--gap-4) var(--gap-8);
+  }
+
+  .head { margin-bottom: var(--gap-6); }
+  h1 {
+    margin: 0 0 var(--gap-3);
+    font: 650 var(--fs-title)/1.08 var(--font-label);
+    font-stretch: 92%;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  .lede {
+    margin: 0;
+    max-width: 62ch;
+    font: 400 var(--fs-body)/1.5 var(--font-text);
+    color: var(--ink-2);
+    text-wrap: pretty;
+  }
+  code { font: 400 0.84em/1 var(--font-code); }
+
+  /* The caption under test: text serif, hairline ink rule above, as in the figure. */
+  .caption {
+    margin: 0;
+    padding-top: var(--gap-3);
+    border-top: 1px solid var(--ink);
+    max-width: 66ch;
+    font: 400 var(--fs-caption)/1.62 var(--font-text);
+    color: var(--ink);
+    text-wrap: pretty;
+  }
+  .caption .fig { font: 700 1em/1 var(--font-label); }
+  .caption sub, .caption sup { font-size: 0.7em; line-height: 0; }
+
+  .keys {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: var(--gap-1) var(--gap-4);
+    margin: var(--gap-5) 0 0;
+    font: 400 var(--fs-label)/1.45 var(--font-label);
+  }
+  .keys dt { font-weight: 500; color: var(--ink); }
+  .keys dd { margin: 0; color: var(--ink-2); }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--gap-5);
+    margin-top: var(--gap-5);
+    padding-top: var(--gap-2);
+    border-top: 1px solid var(--rule);
+  }
+  .textbtn {
+    appearance: none;
+    margin: 0;
+    padding: var(--gap-2) 0;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    font: 500 var(--fs-ui)/1.2 var(--font-label);
+    cursor: pointer;
+    text-decoration-line: underline;
+    text-decoration-color: var(--rule);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.3em;
+  }
+  .textbtn:hover { text-decoration-color: currentColor; }
+  .textbtn:focus:not(:focus-visible) { outline: none; }
+  .textbtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .textbtn:disabled { color: var(--ink-3); cursor: default; text-decoration-line: none; }
+  .state { margin-left: var(--gap-2); color: var(--ink-3); font: 400 var(--fs-label)/1.2 var(--font-label); }
+  @media (pointer: coarse) {
+    .textbtn { padding: var(--gap-3) 0; }
+  }
+
+  .panel { margin-top: var(--gap-7); }
+  .panel-title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--gap-2);
+    margin: 0 0 var(--gap-3);
+    font: 500 var(--fs-ui)/1.2 var(--font-label);
+    color: var(--ink-2);
+  }
+  .letter { font: 700 var(--fs-panel)/1 var(--font-label); color: var(--ink); }
+
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font: 400 var(--fs-label)/1.3 var(--font-label);
+    font-variant-numeric: tabular-nums;
+  }
+  th {
+    padding: 0 var(--gap-3) var(--gap-2) 0;
+    border-bottom: 1px solid var(--ink);
+    font-weight: 500;
+    color: var(--ink-2);
+    text-align: left;
+    white-space: nowrap;
+  }
+  td {
+    padding: 7px var(--gap-3) 7px 0;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  th:last-child, td:last-child { padding-right: 0; }
+  .num { text-align: right; }
+  .math { font-family: var(--font-text); font-style: italic; }
+  .ev-input { color: var(--ink-2); }
+  .ev-commit { font-weight: 600; }
+  .ev-set { color: var(--ink-2); font-style: italic; }
+  .sp { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+  .sp svg { flex: none; }
+  tr.is-idle td { color: var(--ink-3); }
+  tr.is-idle .sp svg { opacity: 0.35; }
+
+  .empty, .note {
+    margin: var(--gap-3) 0 0;
+    max-width: 62ch;
+    font: 400 var(--fs-label)/1.5 var(--font-label);
+    color: var(--ink-2);
+  }
+  .empty[hidden] { display: none; }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <header class="head">
+    <h1>Caption controls</h1>
+    <p class="lede">A test sheet for <code>src/scrub.js</code> and <code>src/audio.js</code>. Every dotted number in the caption below is a control: drag it sideways, or focus it and use the keyboard. Serve the project folder over HTTP (for example with <code>tools/serve.mjs</code>); modules do not load from a file URL.</p>
+  </header>
+
+  <p class="caption" id="caption">
+    <span class="fig">Fig. 1 |</span>
+    A dish of <span data-scrub="n">5,000</span> particles in <span data-scrub="S">6</span> species, each feeling its neighbours within <span class="math">r</span><sub>max</sub> = <span data-scrub="rMax">0.055</span> of the unit torus.
+    Velocities halve every <span data-scrub="halfLife">40</span> ms under a force scale of <span data-scrub="force">10.0</span>, outside a repulsive core of <span class="math">β</span> = <span data-scrub="beta">0.30</span>.
+    The sonifier listens to synthetic statistics: each species gathers to as much as <span data-scrub="cluster">8.0</span>-fold its well-mixed density on a slow cycle, moving at about <span data-scrub="speed">2.0</span> <span class="math">r</span><sub>max</sub> s<sup>−1</sup>, and the self-affinity <span class="math">a</span><sub>AA</sub> = <span data-scrub="selfA">+0.45</span> sets how much of that cycle species A reaches.
+  </p>
+
+  <dl class="keys">
+    <dt>Drag sideways</dt><dd>right raises the value, left lowers it</dd>
+    <dt>Shift</dt><dd>while dragging, ten times finer</dd>
+    <dt>Arrow keys</dt><dd>one step when a number has focus</dd>
+    <dt>Page Up, Page Down</dt><dd>ten steps</dd>
+    <dt>Home, End</dt><dd>the limits of the range</dd>
+    <dt>Escape</dt><dd>abandons a drag and restores the number</dd>
+  </dl>
+
+  <div class="actions">
+    <span><button type="button" class="textbtn" id="sonify" aria-pressed="false" aria-describedby="sonify-state">Sonify</button><span class="state" id="sonify-state" aria-live="polite">off</span></span>
+    <button type="button" class="textbtn" id="disable" aria-pressed="false">Disable controls</button>
+    <button type="button" class="textbtn" id="reset">Reset values</button>
+    <button type="button" class="textbtn" id="theme">Theme: auto</button>
+  </div>
+
+  <section class="panel" aria-labelledby="events-title">
+    <h2 class="panel-title" id="events-title"><span class="letter">a</span> Events, newest first</h2>
+    <div class="table-wrap">
+      <table aria-labelledby="events-title">
+        <thead>
+          <tr><th scope="col">control</th><th scope="col">event</th><th scope="col" class="num">before</th><th scope="col" class="num">after</th></tr>
+        </thead>
+        <tbody id="log"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="log-empty">No events yet. Drag a dotted number sideways, or focus one and press an arrow key.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="voices-title">
+    <h2 class="panel-title" id="voices-title"><span class="letter">b</span> Synthetic statistics and the voices they drive</h2>
+    <div class="table-wrap">
+      <table aria-labelledby="voices-title">
+        <thead>
+          <tr>
+            <th scope="col">species</th>
+            <th scope="col">note</th>
+            <th scope="col" class="num">aggregation</th>
+            <th scope="col" class="num">speed</th>
+            <th scope="col" class="num">level</th>
+            <th scope="col" class="num">cutoff (Hz)</th>
+          </tr>
+        </thead>
+        <tbody id="voices"></tbody>
+      </table>
+    </div>
+    <p class="note">Level follows log aggregation: 1 (well mixed) is near silent, 20 and above is full. Cutoff follows mean speed, 300 Hz to 3 kHz. Species beyond <span class="math">S</span> fade out. The statistics update ten times a second whether or not sound is on; the sonifier ignores them while stopped.</p>
+  </section>
+</main>
+
+<script type="module">
+  import { createScrub } from '../src/scrub.js';
+  import { createSonifier, VOICE_NOTES, loudnessFor, cutoffFor } from '../src/audio.js';
+  import { SPECIES, SPECIES_MAX, markerSVG } from '../src/markers.js';
+
+  const MINUS = '−';
+  const grouped = new Intl.NumberFormat('en-US');
+  const signed = (v, d) => (v > 0 ? '+' : v < 0 ? MINUS : '') + Math.abs(v).toFixed(d);
+
+  // The caption's numbers: different ranges and steps, two of them log scaled.
+  const CONTROLS = {
+    n:        { name: '<span class="math">n</span>', value: 5000, min: 500, max: 12000, step: 100,
+                format: (v) => grouped.format(v), label: 'Particle count', unit: 'particles' },
+    S:        { name: '<span class="math">S</span>', value: 6, min: 2, max: 8, step: 1, pxPerStep: 16,
+                format: String, label: 'Species count', unit: 'species' },
+    rMax:     { name: '<span class="math">r</span><sub>max</sub>', value: 0.055, min: 0.02, max: 0.12, step: 0.001,
+                format: (v) => v.toFixed(3), label: 'Interaction radius', unit: 'of the dish width' },
+    halfLife: { name: 'half-life (ms)', value: 0.04, min: 0.005, max: 0.2, step: 0.001, log: true,
+                format: (v) => (v * 1000).toFixed(0), label: 'Velocity half-life', unit: 'milliseconds' },
+    force:    { name: 'force', value: 10, min: 1, max: 30, step: 0.1,
+                format: (v) => v.toFixed(1), label: 'Force scale' },
+    beta:     { name: '<span class="math">β</span>', value: 0.3, min: 0.05, max: 0.6, step: 0.01,
+                format: (v) => v.toFixed(2), label: 'Core radius beta', unit: 'of r max' },
+    cluster:  { name: 'peak aggregation', value: 8, min: 1, max: 50, step: 0.1, log: true,
+                format: (v) => v.toFixed(1), label: 'Peak aggregation', unit: 'fold' },
+    speed:    { name: 'speed', value: 2, min: 0.1, max: 12, step: 0.1,
+                format: (v) => v.toFixed(1), label: 'Mean speed', unit: 'r max per second' },
+    selfA:    { name: '<span class="math">a</span><sub>AA</sub>', value: 0.45, min: -1, max: 1, step: 0.05, pxPerStep: 6,
+                format: (v) => signed(v, 2), label: 'Self-affinity of species A' },
+  };
+
+  // ---- event log -----------------------------------------------------------
+
+  const LOG_ROWS = 8;
+  const rows = [];            // newest first: { key, kind, before, after, count }
+  const logBody = document.getElementById('log');
+  const logEmpty = document.getElementById('log-empty');
+  let logFrame = 0;
+
+  function pushRow(key, kind, before, after) {
+    const top = rows[0];
+    if (kind === 'input' && top && top.kind === 'input' && top.key === key) {
+      top.after = after;      // one row per run of input events
+      top.count++;
+    } else {
+      rows.unshift({ key, kind, before, after, count: 1 });
+      rows.length = Math.min(rows.length, LOG_ROWS);
+    }
+    if (!logFrame) logFrame = requestAnimationFrame(renderLog);
+  }
+
+  function renderLog() {
+    logFrame = 0;
+    logEmpty.hidden = rows.length > 0;
+    const html = rows.map((r) => {
+      const spec = CONTROLS[r.key];
+      const event = r.kind === 'input' ? `input${r.count > 1 ? ` (${r.count})` : ''}` : r.kind;
+      return `<tr><td>${spec.name}</td><td class="ev-${r.kind}">${event}</td>`
+        + `<td class="num">${spec.format(r.before)}</td><td class="num">${spec.format(r.after)}</td></tr>`;
+    }).join('');
+    logBody.innerHTML = html;
+  }
+
+  // ---- scrubs --------------------------------------------------------------
+
+  const values = {};
+  const scrubs = new Map();
+  for (const [key, spec] of Object.entries(CONTROLS)) {
+    values[key] = spec.value;
+    const el = document.querySelector(`[data-scrub="${key}"]`);
+    scrubs.set(key, createScrub(el, {
+      ...spec,
+      onInput: (v) => {
+        const prev = values[key];
+        values[key] = v;
+        pushRow(key, 'input', prev, v);
+      },
+      onCommit: (before, after) => pushRow(key, 'commit', before, after),
+    }));
+  }
+
+  // ---- synthetic statistics, the voices table and the sonifier -------------
+
+  const stats = {
+    steps: 0, n: 0, S: 0,
+    count: new Float32Array(SPECIES_MAX),
+    meanSpeed: new Float32Array(SPECIES_MAX),
+    aggregation: new Float32Array(SPECIES_MAX),
+    aggregationAll: 1,
+    meanSpeedAll: 0,
+  };
+  const t0 = performance.now();
+
+  function synthesize() {
+    const t = (performance.now() - t0) / 1000;
+    const { n, S } = values;
+    stats.steps = Math.floor(t / 0.02);
+    stats.n = n;
+    stats.S = S;
+    let aggregationSum = 0;
+    let speedSum = 0;
+    for (let i = 0; i < SPECIES_MAX; i++) {
+      if (i >= S) {
+        stats.count[i] = 0;
+        stats.aggregation[i] = 0;
+        stats.meanSpeed[i] = 0;
+        continue;
+      }
+      stats.count[i] = Math.floor(n / S) + (i < n % S ? 1 : 0);
+      const phase = (2 * Math.PI * t) / (7 + 2.3 * i) + 1.7 * i;
+      let gather = 0.5 - 0.5 * Math.cos(phase);           // 0..1 on a slow cycle
+      if (i === 0) gather *= (1 + values.selfA) / 2;     // a_AA = -1: A never gathers
+      stats.aggregation[i] = Math.exp(Math.log(values.cluster) * gather);
+      stats.meanSpeed[i] = values.speed * (0.7 + 0.3 * (1 + Math.sin(1.9 * phase + 0.8)));
+      aggregationSum += stats.aggregation[i] * stats.count[i];
+      speedSum += stats.meanSpeed[i] * stats.count[i];
+    }
+    stats.aggregationAll = aggregationSum / n;
+    stats.meanSpeedAll = speedSum / n;
+  }
+
+  const voicesBody = document.getElementById('voices');
+  const voiceRows = [];
+  for (let i = 0; i < SPECIES_MAX; i++) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><span class="sp">${SPECIES[i].letter}</span></td><td>${VOICE_NOTES[i]}</td>`
+      + '<td class="num"></td><td class="num"></td><td class="num"></td><td class="num"></td>';
+    const sp = tr.querySelector('.sp');
+    sp.prepend(markerSVG(i, 12));
+    voicesBody.appendChild(tr);
+    const cells = [...tr.querySelectorAll('.num')];
+    voiceRows.push({ tr, sp, cells, text: ['', '', '', ''], idle: null });
+  }
+
+  function refreshMarkers() {
+    voiceRows.forEach((row, i) => row.sp.firstElementChild.replaceWith(markerSVG(i, 12)));
+  }
+
+  function renderVoices() {
+    for (let i = 0; i < SPECIES_MAX; i++) {
+      const row = voiceRows[i];
+      const idle = i >= stats.S;
+      if (idle !== row.idle) {
+        row.tr.classList.toggle('is-idle', idle);
+        row.idle = idle;
+      }
+      const a = stats.aggregation[i];
+      const s = stats.meanSpeed[i];
+      const next = idle
+        ? ['–', '–', '0.00', '–']
+        : [a.toFixed(2), s.toFixed(2), loudnessFor(a).toFixed(2), grouped.format(Math.round(cutoffFor(s)))];
+      for (let c = 0; c < 4; c++) {
+        if (next[c] !== row.text[c]) {
+          row.cells[c].textContent = next[c];
+          row.text[c] = next[c];
+        }
+      }
+    }
+  }
+
+  const sonifier = createSonifier();
+  function tick() {
+    synthesize();
+    sonifier.update(stats);   // a no-op until sound is on
+    renderVoices();
+  }
+  tick();
+  setInterval(tick, 100);
+
+  // ---- actions -------------------------------------------------------------
+
+  const sonifyButton = document.getElementById('sonify');
+  const sonifyState = document.getElementById('sonify-state');
+  const hasWebAudio = typeof (window.AudioContext || window.webkitAudioContext) === 'function';
+
+  function showSonify(state) {
+    sonifyState.textContent = state;
+    sonifyButton.setAttribute('aria-pressed', String(state === 'on'));
+  }
+
+  if (!hasWebAudio) {
+    sonifyButton.disabled = true;
+    showSonify('unavailable in this browser');
+  }
+
+  sonifyButton.addEventListener('click', async () => {
+    if (sonifier.running) {
+      sonifier.stop();
+      showSonify('off');
+      return;
+    }
+    showSonify('starting');
+    const ok = await sonifier.start();   // called straight from the click
+    if (ok) tick();
+    showSonify(ok ? 'on' : sonifier.running ? 'on' : hasWebAudio ? 'off' : 'unavailable in this browser');
+  });
+
+  const disableButton = document.getElementById('disable');
+  disableButton.addEventListener('click', () => {
+    const disabled = disableButton.getAttribute('aria-pressed') !== 'true';
+    disableButton.setAttribute('aria-pressed', String(disabled));
+    for (const scrub of scrubs.values()) scrub.enable(!disabled);
+  });
+
+  document.getElementById('reset').addEventListener('click', () => {
+    for (const [key, spec] of Object.entries(CONTROLS)) {
+      if (values[key] === spec.value) continue;
+      pushRow(key, 'set', values[key], spec.value);
+      scrubs.get(key).set(spec.value);   // set() fires no onInput: the row above is the harness's own
+      values[key] = spec.value;
+    }
+  });
+
+  const THEMES = ['auto', 'light', 'dark'];
+  const themeButton = document.getElementById('theme');
+  let themeIndex = 0;
+  themeButton.addEventListener('click', () => {
+    themeIndex = (themeIndex + 1) % THEMES.length;
+    const theme = THEMES[themeIndex];
+    if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    themeButton.textContent = `Theme: ${theme}`;
+    refreshMarkers();
+  });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', refreshMarkers);
+
+  renderLog();
+</script>
+</body>
+</html>

@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plots Harness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  /* Harness-only layout. Every colour is a token from styles.css. */
+  html, body { margin: 0; background: var(--paper); color: var(--ink); }
+  body { font: 400 15px/1.4 var(--font-text); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 20px; margin-bottom: 28px; }
+  h1 { margin: 0; font: 650 22px/1.1 var(--font-label); letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--ink-2); max-width: 62ch; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  @media (min-width: 980px) {
+    .grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+    .grid > .panel--a { grid-row: span 2; }
+  }
+  .panel__head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 10px;
+    font: 500 var(--fs-label)/1.2 var(--font-label); color: var(--ink-2); }
+  .panel__letter { font: 750 var(--fs-panel)/1 var(--font-label); color: var(--ink); }
+  .host { position: relative; min-width: 0; }
+  .host--c { max-width: 420px; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 4px; margin-top: 14px;
+    font: 500 var(--fs-ui)/1 var(--font-label); color: var(--ink-2); }
+  .controls__label { margin-right: 6px; min-width: 4.5em; color: var(--ink-3); font-size: var(--fs-label); }
+  .controls + .controls { margin-top: 8px; }
+  button {
+    font: 500 var(--fs-ui)/1 var(--font-label); font-variant-numeric: tabular-nums;
+    color: var(--ink); background: var(--paper); border: 1px solid var(--rule);
+    padding: 7px 10px; cursor: pointer; border-radius: 0;
+  }
+  button:hover { background: var(--hilite); }
+  button[aria-pressed="true"] { border-color: var(--ink); background: var(--hilite-2); }
+  button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .readout { margin-top: 10px; font: 400 var(--fs-label)/1.4 var(--font-label); color: var(--ink-3);
+    font-variant-numeric: tabular-nums; }
+  .dish { position: relative; display: inline-block; max-width: 100%; }
+  .dish__axes { position: absolute; inset: 0; pointer-events: none; }
+  .dish__plate { position: relative; background: var(--paper); touch-action: none; cursor: grab; }
+  .dish__plate.is-dragging { cursor: grabbing; }
+  .dish__plate canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .theme { margin-left: auto; }
+  @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Plots harness</h1>
+    <p>Panels c and d and the dish axes from <code>src/plots.js</code>, driven by synthetic data. Nothing here is a real simulation.</p>
+    <button type="button" class="theme" id="theme" aria-pressed="false">Dark print</button>
+  </header>
+
+  <div class="grid">
+    <section class="panel panel--a" aria-labelledby="head-a">
+      <h2 class="panel__head" id="head-a"><span class="panel__letter">a</span><span>Axes around a synthetic dish (drag to pan, wheel to zoom)</span></h2>
+      <div class="dish" id="dish">
+        <div class="dish__axes" id="dish-axes" aria-hidden="true"></div>
+        <div class="dish__plate" id="plate"><canvas id="canvas" aria-label="Synthetic particles" role="img"></canvas></div>
+      </div>
+      <div class="controls" role="group" aria-label="Zoom">
+        <span class="controls__label">zoom</span>
+        <button type="button" data-zoom="1">1×</button>
+        <button type="button" data-zoom="2">2×</button>
+        <button type="button" data-zoom="4">4×</button>
+        <button type="button" data-zoom="12">12×</button>
+        <button type="button" id="glide">Glide across seam</button>
+      </div>
+      <div class="controls" role="group" aria-label="Interaction radius">
+        <span class="controls__label"><i>r</i><sub>max</sub></span>
+        <button type="button" data-rmax="0.02">0.020</button>
+        <button type="button" data-rmax="0.055">0.055</button>
+        <button type="button" data-rmax="0.12">0.120</button>
+      </div>
+      <div class="controls" role="group" aria-label="Dish size">
+        <span class="controls__label">size</span>
+        <button type="button" data-size="260">260 px</button>
+        <button type="button" data-size="420">420 px</button>
+        <button type="button" data-size="640">640 px</button>
+      </div>
+      <p class="readout" id="view-readout" aria-live="polite"></p>
+    </section>
+
+    <section class="panel panel--c" aria-labelledby="head-c">
+      <h2 class="panel__head" id="head-c"><span class="panel__letter">c</span><span>Force law</span></h2>
+      <div class="host host--c" id="force"></div>
+      <div class="controls" role="group" aria-label="Affinity">
+        <span class="controls__label">a</span>
+        <button type="button" data-a="-1">&minus;1</button>
+        <button type="button" data-a="-0.45">&minus;0.45</button>
+        <button type="button" data-a="0">0</button>
+        <button type="button" data-a="0.45">+0.45</button>
+        <button type="button" data-a="1">+1</button>
+      </div>
+      <div class="controls" role="group" aria-label="Core radius">
+        <span class="controls__label">β</span>
+        <button type="button" data-beta="0.05">0.05</button>
+        <button type="button" data-beta="0.3">0.30</button>
+        <button type="button" data-beta="0.5">0.50</button>
+        <button type="button" data-beta="0.6">0.60</button>
+      </div>
+      <div class="controls" role="group" aria-label="Pair">
+        <span class="controls__label">pair</span>
+        <button type="button" id="next-pair">Next pair</button>
+        <button type="button" id="no-pair">No pair</button>
+        <button type="button" id="sweep">Simulate a drag</button>
+      </div>
+    </section>
+
+    <section class="panel panel--d" aria-labelledby="head-d">
+      <h2 class="panel__head" id="head-d"><span class="panel__letter">d</span><span>Aggregation and speed, last 20 s</span></h2>
+      <div class="host" id="traces"></div>
+      <div class="controls" role="group" aria-label="Species">
+        <span class="controls__label">species</span>
+        <button type="button" data-species="2">2</button>
+        <button type="button" data-species="4">4</button>
+        <button type="button" data-species="6">6</button>
+        <button type="button" data-species="8">8</button>
+      </div>
+      <div class="controls" role="group" aria-label="Events">
+        <span class="controls__label">events</span>
+        <button type="button" id="spike">Cluster B</button>
+        <button type="button" id="calm">Calm all</button>
+        <button type="button" id="pause" aria-pressed="false">Pause</button>
+        <button type="button" id="restart">Restart run</button>
+        <button type="button" id="clear">Clear</button>
+      </div>
+      <p class="readout" id="trace-readout"></p>
+    </section>
+  </div>
+</div>
+
+<script type="module">
+  import { createForceCurve, createTraces, createAxes, AXES_MARGIN } from '../src/plots.js';
+  import { SPECIES, paletteCSS, currentTheme } from '../src/markers.js';
+
+  const $ = (id) => document.getElementById(id);
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+  // ------------------------------------------------------------ panel c
+  const force = createForceCurve($('force'));
+  const law = { i: 0, j: 1, a: 0.45, beta: 0.3 };
+  const pushLaw = () => force.update(law);
+  pushLaw();
+
+  document.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => {
+    if (law.i < 0) { law.i = 0; law.j = 1; }
+    law.a = Number(b.dataset.a);
+    pushLaw();
+  }));
+  document.querySelectorAll('[data-beta]').forEach((b) => b.addEventListener('click', () => {
+    law.beta = Number(b.dataset.beta);
+    pushLaw();
+  }));
+  $('next-pair').addEventListener('click', () => {
+    const S = 6;
+    const k = ((Math.max(0, law.i) * S + Math.max(0, law.j)) + 7) % (S * S);
+    law.i = Math.floor(k / S);
+    law.j = k % S;
+    law.a = Math.round((Math.sin(k * 2.3) * 0.9) / 0.05) * 0.05;
+    pushLaw();
+  });
+  $('no-pair').addEventListener('click', () => {
+    law.i = -1;
+    law.j = -1;
+    pushLaw();
+  });
+  // A drag in panel b sends quantised values every few pixels; replay that rhythm.
+  $('sweep').addEventListener('click', () => {
+    if (law.i < 0) { law.i = 2; law.j = 4; }
+    const start = performance.now();
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / 1400);
+      law.a = Math.round(Math.sin(p * Math.PI * 2) * 0.8 / 0.05) * 0.05;
+      pushLaw();
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+
+  // ------------------------------------------------------------ panel d
+  const traces = createTraces($('traces'), { seconds: 20 });
+  const gen = {
+    S: 6, t: 0, paused: false,
+    logAgg: new Float64Array(8), speed: new Float64Array(8), boost: new Float64Array(8),
+    stats: { S: 6, n: 5000, steps: 0, count: new Float32Array(8), aggregation: new Float32Array(8),
+      meanSpeed: new Float32Array(8), aggregationAll: 1, meanSpeedAll: 0 },
+  };
+  const gauss = () => {
+    let u = 0;
+    while (u === 0) u = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * Math.random());
+  };
+  const meanLogAgg = (s) => Math.log(1 + s * 0.9);
+  const meanSpeed = (s) => 0.35 + s * 0.22;
+  for (let s = 0; s < 8; s++) { gen.logAgg[s] = meanLogAgg(s); gen.speed[s] = meanSpeed(s); }
+
+  function stepGenerator(dt) {
+    const st = gen.stats;
+    st.S = gen.S;
+    let aggSum = 0, spdSum = 0;
+    for (let s = 0; s < gen.S; s++) {
+      // Ornstein-Uhlenbeck in log space keeps aggregation positive and wandering.
+      gen.logAgg[s] += 0.6 * (meanLogAgg(s) - gen.logAgg[s]) * dt + 0.22 * Math.sqrt(dt) * gauss();
+      gen.speed[s] += 0.8 * (meanSpeed(s) - gen.speed[s]) * dt + 0.08 * Math.sqrt(dt) * gauss();
+      gen.boost[s] *= Math.exp(-dt / 2.5);
+      st.aggregation[s] = Math.exp(gen.logAgg[s]) * (1 + gen.boost[s]);
+      st.meanSpeed[s] = Math.max(0, gen.speed[s] * (1 + 0.5 * gen.boost[s] / (1 + gen.boost[s])));
+      aggSum += st.aggregation[s];
+      spdSum += st.meanSpeed[s];
+    }
+    st.aggregationAll = aggSum / gen.S;
+    st.meanSpeedAll = spdSum / gen.S;
+    st.steps = Math.round(gen.t / 0.02);
+  }
+
+  traces.setSpecies(gen.S);
+  setInterval(() => {
+    if (gen.paused) return;
+    gen.t += 0.1;
+    stepGenerator(0.1);
+    traces.push(gen.stats, gen.t);
+    $('trace-readout').textContent = `t = ${gen.t.toFixed(1)} s, ${gen.S} species, pushing at 10 Hz`;
+  }, 100);
+
+  document.querySelectorAll('[data-species]').forEach((b) => b.addEventListener('click', () => {
+    gen.S = Number(b.dataset.species);
+    traces.setSpecies(gen.S);
+    drawDish();
+  }));
+  $('spike').addEventListener('click', () => { gen.boost[1] = 45; });
+  $('calm').addEventListener('click', () => {
+    gen.boost.fill(0);
+    for (let s = 0; s < 8; s++) gen.logAgg[s] = 0;
+  });
+  $('pause').addEventListener('click', () => {
+    gen.paused = !gen.paused;
+    $('pause').setAttribute('aria-pressed', String(gen.paused));
+  });
+  $('restart').addEventListener('click', () => { gen.t = 0; });
+  $('clear').addEventListener('click', () => traces.clear());
+
+  // ------------------------------------------------------------ panel a
+  const axes = createAxes($('dish-axes'));
+  const view = { cx: 0.5, cy: 0.5, zoom: 1 };
+  const dish = { rMax: 0.055, size: 420 };
+  const plate = $('plate');
+  const canvas = $('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // A fixed synthetic population: clumps per species on the unit torus.
+  const N = 2600;
+  const px = new Float32Array(N), py = new Float32Array(N), ps = new Uint8Array(N);
+  (function seedParticles() {
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    const clumps = Array.from({ length: 22 }, (_, k) => ({ x: rnd(), y: rnd(), r: 0.01 + rnd() * 0.035, s: k % 8 }));
+    for (let i = 0; i < N; i++) {
+      if (i % 3 === 0) { px[i] = rnd(); py[i] = rnd(); ps[i] = i % 8; continue; }
+      const c = clumps[i % clumps.length];
+      const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * c.r;
+      px[i] = (c.x + Math.cos(a) * d + 1) % 1;
+      py[i] = (c.y + Math.sin(a) * d + 1) % 1;
+      ps[i] = c.s;
+    }
+  })();
+
+  function layoutDish() {
+    plate.style.width = dish.size + 'px';
+    plate.style.height = dish.size + 'px';
+    plate.style.margin = `${AXES_MARGIN.top}px ${AXES_MARGIN.right}px ${AXES_MARGIN.bottom}px ${AXES_MARGIN.left}px`;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(dish.size * dpr);
+    canvas.height = Math.round(dish.size * dpr);
+    drawDish();
+  }
+
+  function drawDish() {
+    const dpr = canvas.width / dish.size;
+    const theme = currentTheme();
+    const colors = paletteCSS(8, theme);
+    const paper = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = paper;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const w = 1 / view.zoom;
+    const left = view.cx - w / 2, top = view.cy - w / 2;
+    const r = Math.max(1.35, 0.0026 * view.zoom * dish.size * dpr);
+    const fract = (v) => v - Math.floor(v);
+    for (let s = 0; s < gen.S; s++) {
+      ctx.fillStyle = colors[s];
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      for (let i = 0; i < N; i++) {
+        if (ps[i] % gen.S !== s) continue;
+        const u = fract(px[i] - left) / w, v = fract(py[i] - top) / w;
+        if (u > 1 || v > 1) continue;
+        const x = u * canvas.width, y = v * canvas.height;
+        ctx.moveTo(x + r, y);
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+      }
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    axes.update({ view, rMax: dish.rMax, sizePx: dish.size });
+    $('view-readout').textContent =
+      `cx ${view.cx.toFixed(3)}, cy ${view.cy.toFixed(3)}, zoom ${view.zoom.toFixed(2)}, r_max ${dish.rMax}, ${dish.size} px`;
+  }
+
+  function zoomAt(ux, uy, next) {
+    const w0 = 1 / view.zoom, w1 = 1 / next;
+    const wx = view.cx - w0 / 2 + ux * w0, wy = view.cy - w0 / 2 + uy * w0;
+    view.cx = wx - (ux - 0.5) * w1;
+    view.cy = wy - (uy - 0.5) * w1;
+    view.zoom = next;
+    drawDish();
+  }
+
+  document.querySelectorAll('[data-zoom]').forEach((b) => b.addEventListener('click', () => zoomAt(0.5, 0.5, Number(b.dataset.zoom))));
+  document.querySelectorAll('[data-rmax]').forEach((b) => b.addEventListener('click', () => { dish.rMax = Number(b.dataset.rmax); drawDish(); }));
+  document.querySelectorAll('[data-size]').forEach((b) => b.addEventListener('click', () => { dish.size = Number(b.dataset.size); layoutDish(); }));
+
+  plate.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = plate.getBoundingClientRect();
+    const next = Math.max(1, Math.min(12, view.zoom * Math.exp(-e.deltaY * 0.0015)));
+    zoomAt((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height, next);
+  }, { passive: false });
+
+  let drag = null;
+  plate.addEventListener('pointerdown', (e) => {
+    drag = { x: e.clientX, y: e.clientY };
+    plate.setPointerCapture(e.pointerId);
+    plate.classList.add('is-dragging');
+  });
+  plate.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const w = 1 / view.zoom;
+    view.cx -= ((e.clientX - drag.x) / dish.size) * w;
+    view.cy -= ((e.clientY - drag.y) / dish.size) * w;
+    drag = { x: e.clientX, y: e.clientY };
+    drawDish();
+  });
+  const endDrag = () => { drag = null; plate.classList.remove('is-dragging'); };
+  plate.addEventListener('pointerup', endDrag);
+  plate.addEventListener('pointercancel', endDrag);
+
+  // Pan steadily across the x = 0 seam at zoom 4 so the label hand-over can be watched.
+  $('glide').addEventListener('click', () => {
+    view.zoom = 4;
+    view.cy = 0.5;
+    const from = 0.85, to = 1.15, start = performance.now(), ms = reduceMotion.matches ? 0 : 4000;
+    const tick = (now) => {
+      const p = ms ? Math.min(1, (now - start) / ms) : 1;
+      view.cx = from + (to - from) * p;
+      drawDish();
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+
+  layoutDish();
+
+  // ------------------------------------------------------------ theme
+  $('theme').addEventListener('click', () => {
+    const dark = currentTheme() !== 'dark';
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    $('theme').setAttribute('aria-pressed', String(dark));
+    $('theme').textContent = dark ? 'Light print' : 'Dark print';
+    force.refreshTheme();
+    traces.refreshTheme();
+    axes.refreshTheme();
+    drawDish();
+  });
+  $('theme').textContent = currentTheme() === 'dark' ? 'Light print' : 'Dark print';
+  $('theme').setAttribute('aria-pressed', String(currentTheme() === 'dark'));
+
+  // Exposed for poking at from the console.
+  window.harness = { force, traces, axes, view, dish, law, gen, SPECIES };
+</script>
+</body>
+</html>

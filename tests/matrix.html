@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Matrix harness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html { background: var(--paper); }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 var(--fs-ui)/1.5 var(--font-label);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection { background: var(--hilite-2); color: var(--ink); }
+
+  .sheet {
+    box-sizing: border-box;
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: var(--gap-7) var(--gap-4) var(--gap-8);
+  }
+
+  .head { max-width: 46rem; margin-bottom: var(--gap-6); }
+  h1 {
+    margin: 0 0 var(--gap-3);
+    font: 650 var(--fs-title)/1.08 var(--font-label);
+    font-stretch: 92%;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  .lede {
+    margin: 0;
+    max-width: 62ch;
+    font: 400 var(--fs-body)/1.5 var(--font-text);
+    color: var(--ink-2);
+    text-wrap: pretty;
+  }
+  .lede i { font-family: var(--font-text); }
+  code { font: 400 0.84em/1 var(--font-code); }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--gap-2) var(--gap-5);
+    margin: 0 0 var(--gap-6);
+    padding-top: var(--gap-2);
+    border-top: 1px solid var(--ink);
+    font: 400 var(--fs-label)/1.45 var(--font-label);
+  }
+  .act {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    font: 500 var(--fs-label)/1.45 var(--font-label);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--ink-3);
+    cursor: pointer;
+  }
+  .act:hover { text-decoration-color: var(--ink); }
+  .act[aria-pressed="true"] { font-weight: 700; }
+  .check { display: inline-flex; gap: var(--gap-1); align-items: baseline; color: var(--ink-2); }
+  .check input { accent-color: var(--ink); margin: 0; }
+
+  .specimens {
+    display: grid;
+    gap: var(--gap-6);
+    margin-bottom: var(--gap-7);
+  }
+  .specimen-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--gap-5) var(--gap-6);
+    padding-top: var(--gap-3);
+    border-top: 1px solid var(--rule);
+  }
+  .specimen { margin: 0; }
+  .specimen figcaption {
+    margin-bottom: var(--gap-2);
+    font: 500 var(--fs-label)/1 var(--font-label);
+    color: var(--ink-2);
+  }
+  .specimen figcaption b { font-weight: 700; color: var(--ink); }
+  /* The dashed frame shows the container's width, so overflow is obvious. */
+  .frame { outline: 1px dashed var(--rule); outline-offset: 0; }
+  .w240 { width: 240px; }
+  .w360 { width: 360px; }
+  .w480 { width: 480px; }
+
+  .resizable {
+    box-sizing: border-box;
+    width: 420px;
+    min-width: 160px;
+    max-width: 100%;
+    resize: horizontal;
+    overflow: hidden;
+    padding-bottom: var(--gap-2);
+  }
+  .stepper { display: inline-flex; gap: var(--gap-3); align-items: baseline; }
+
+  h2 {
+    margin: 0 0 var(--gap-3);
+    font: 700 var(--fs-panel)/1.2 var(--font-label);
+  }
+  .log {
+    margin: 0;
+    padding: var(--gap-3) 0 0;
+    border-top: 1px solid var(--ink);
+    max-height: 22rem;
+    overflow: auto;
+    list-style: none;
+    font: 400 12px/1.6 var(--font-code);
+    color: var(--ink-2);
+  }
+  .log li { white-space: pre; }
+  .log .who { color: var(--ink-3); }
+  .log .fn { color: var(--ink); }
+  .empty { color: var(--ink-3); font: 400 var(--fs-label)/1.5 var(--font-label); }
+
+  @media (max-width: 40rem) {
+    .w480, .w360 { width: 100%; max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <header class="head">
+    <h1>Panel b, the affinity table</h1>
+    <p class="lede">Harness for <code>src/matrix.js</code>. Each specimen is one <code>createMatrix()</code> at a fixed
+      container width. Drag a cell vertically (Shift for fine), hover or tab through it, press a species header to
+      highlight. Every handler call lands in the log below.</p>
+  </header>
+
+  <div class="actions" role="group" aria-label="Harness controls">
+    <button type="button" class="act" id="theme" aria-pressed="false">Dark print</button>
+    <button type="button" class="act" id="reroll">New values (set)</button>
+    <button type="button" class="act" id="nudge">Nudge one cell (setValue)</button>
+    <button type="button" class="act" id="focus-first">Focus first cell</button>
+    <button type="button" class="act" id="clear">Clear log</button>
+    <label class="check"><input type="checkbox" id="log-hover"> log onHover</label>
+  </div>
+
+  <div class="specimens" id="specimens"></div>
+
+  <section class="specimen-row" aria-labelledby="resize-head" style="margin-bottom: var(--gap-7)">
+    <figure class="specimen">
+      <figcaption id="resize-head"><b>Resizable</b> &middot; drag the corner; <span class="stepper">
+        <button type="button" class="act" id="s-less" aria-label="Fewer species">fewer</button>
+        <span>S = <span id="s-now">5</span></span>
+        <button type="button" class="act" id="s-more" aria-label="More species">more</button></span>
+      </figcaption>
+      <div class="frame resizable" id="resizable"></div>
+    </figure>
+  </section>
+
+  <section aria-labelledby="log-head">
+    <h2 id="log-head">Handler log</h2>
+    <ol class="log" id="log" aria-live="off"></ol>
+    <p class="empty" id="log-empty">No calls yet.</p>
+  </section>
+</main>
+
+<script type="module">
+  import { createMatrix, matrixHelpers } from '../src/matrix.js';
+
+  const fmt = matrixHelpers.formatAffinity;
+  const LETTERS = 'ABCDEFGH';
+
+  // Small seeded generator so every reload shows the same tables.
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function randomMatrix(S, rng) {
+    const m = new Array(S * S);
+    for (let k = 0; k < S * S; k++) {
+      const u = rng();
+      m[k] = u < 0.1 ? 0 : Math.round((rng() * 2 - 1) * 20) / 20;
+    }
+    return m;
+  }
+
+  const logEl = document.getElementById('log');
+  const logEmpty = document.getElementById('log-empty');
+  const logHover = document.getElementById('log-hover');
+  const MAX_LOG = 160;
+  function log(who, fn, args) {
+    const li = document.createElement('li');
+    const w = document.createElement('span');
+    w.className = 'who';
+    w.textContent = who.padEnd(10);
+    const f = document.createElement('span');
+    f.className = 'fn';
+    f.textContent = fn;
+    li.append(w, f, document.createTextNode(`(${args})`));
+    logEl.prepend(li);
+    while (logEl.childElementCount > MAX_LOG) logEl.lastElementChild.remove();
+    logEmpty.hidden = true;
+  }
+
+  const instances = [];
+  let rng = mulberry32(20261018);
+
+  function mount(container, S, tag) {
+    const inst = { S, tag, matrix: randomMatrix(S, rng), api: null };
+    inst.api = createMatrix(container, {
+      onHover(i, j) {
+        if (logHover.checked) log(inst.tag, 'onHover', i < 0 ? '-1, -1' : `${i}, ${j}  ${LETTERS[i]}${LETTERS[j]}`);
+      },
+      onChange(i, j, v) {
+        inst.matrix[i * inst.S + j] = v;
+        log(inst.tag, 'onChange', `${i}, ${j}, ${fmt(v)}`);
+      },
+      onCommit(i, j, before, after) {
+        log(inst.tag, 'onCommit', `${i}, ${j}, ${fmt(before)} -> ${fmt(after)}`);
+      },
+      onHighlight(s) {
+        log(inst.tag, 'onHighlight', s < 0 ? '-1' : `${s}  ${LETTERS[s]}`);
+      },
+    });
+    inst.api.set(S, inst.matrix);
+    instances.push(inst);
+    return inst;
+  }
+
+  // Specimen sheet: S = 2, 4, 6, 8 by container widths 240, 360, 480.
+  const sheet = document.getElementById('specimens');
+  for (const S of [2, 4, 6, 8]) {
+    const row = document.createElement('section');
+    row.className = 'specimen-row';
+    row.setAttribute('aria-label', `${S} species`);
+    for (const w of [240, 360, 480]) {
+      const fig = document.createElement('figure');
+      fig.className = 'specimen';
+      const cap = document.createElement('figcaption');
+      cap.innerHTML = `<b>S = ${S}</b> &middot; ${w} px`;
+      const frame = document.createElement('div');
+      frame.className = `frame w${w}`;
+      fig.append(cap, frame);
+      row.append(fig);
+      mount(frame, S, `S${S}/${w}`);
+    }
+    sheet.append(row);
+  }
+
+  // Resizable specimen: exercises ResizeObserver layout and S rebuilds.
+  const resizable = mount(document.getElementById('resizable'), 5, 'resizable');
+  const sNow = document.getElementById('s-now');
+  function setS(next) {
+    const S = Math.max(2, Math.min(8, next));
+    if (S === resizable.S) return;
+    const old = resizable.matrix;
+    const oldS = resizable.S;
+    const m = randomMatrix(S, rng);
+    for (let i = 0; i < Math.min(S, oldS); i++) {
+      for (let j = 0; j < Math.min(S, oldS); j++) m[i * S + j] = old[i * oldS + j];
+    }
+    resizable.S = S;
+    resizable.matrix = m;
+    resizable.api.set(S, m);
+    sNow.textContent = String(S);
+  }
+  document.getElementById('s-less').addEventListener('click', () => setS(resizable.S - 1));
+  document.getElementById('s-more').addEventListener('click', () => setS(resizable.S + 1));
+
+  // Controls.
+  const themeBtn = document.getElementById('theme');
+  const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  function syncThemeButton() {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark'
+      || (!document.documentElement.hasAttribute('data-theme') && systemDark);
+    themeBtn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+    themeBtn.textContent = dark ? 'Light print' : 'Dark print';
+  }
+  themeBtn.addEventListener('click', () => {
+    const dark = themeBtn.getAttribute('aria-pressed') === 'true';
+    document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+    syncThemeButton();
+    for (const inst of instances) inst.api.refreshTheme();
+  });
+  syncThemeButton();
+
+  document.getElementById('reroll').addEventListener('click', () => {
+    for (const inst of instances) {
+      inst.matrix = randomMatrix(inst.S, rng);
+      inst.api.set(inst.S, inst.matrix);
+    }
+  });
+
+  document.getElementById('nudge').addEventListener('click', () => {
+    for (const inst of instances) {
+      const k = Math.floor(rng() * inst.S * inst.S);
+      const i = Math.floor(k / inst.S);
+      const j = k % inst.S;
+      const v = Math.max(-1, Math.min(1, inst.matrix[k] + (rng() < 0.5 ? -0.5 : 0.5)));
+      inst.matrix[k] = Math.round(v * 20) / 20;
+      inst.api.setValue(i, j, inst.matrix[k]);
+    }
+  });
+
+  document.getElementById('focus-first').addEventListener('click', () => instances[0].api.focusCell(0, 0));
+
+  document.getElementById('clear').addEventListener('click', () => {
+    logEl.replaceChildren();
+    logEmpty.hidden = false;
+  });
+</script>
+</body>
+</html>

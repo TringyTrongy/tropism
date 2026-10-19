@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tropism</title>
+<meta name="description" content="A living research figure: thousands of particles, a handful of species, and one small table of affinities that makes them look alive.">
+<meta property="og:title" content="Tropism">
+<meta property="og:description" content="Particle life as a living research figure. Drag one number in the table and watch new creatures assemble.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tringytrongy.github.io/tropism/">
+<meta property="og:image" content="https://tringytrongy.github.io/tropism/media/tropism-light.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0d0f" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fff'/%3E%3Ccircle cx='11' cy='12' r='5' fill='%230072B2'/%3E%3Crect x='17' y='15' width='9' height='9' fill='%23E69F00'/%3E%3Cpath d='M9 27l4-7 4 7z' fill='%23009E73'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&amp;display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="page">
+  <header class="runhead">
+    <h1 class="runhead__name">Tropism</h1>
+    <p class="runhead__note">A living figure. Every body in <b>a</b> is made by the table in <b>b</b>.</p>
+    <div class="actions" role="group" aria-label="World">
+      <button type="button" class="btn btn--primary" id="act-new">New world <kbd>N</kbd></button>
+      <button type="button" class="btn" id="act-mutate">Mutate <kbd>M</kbd></button>
+      <button type="button" class="btn" id="act-undo" disabled>Undo <kbd>Z</kbd></button>
+      <button type="button" class="btn" id="act-redo" disabled>Redo</button>
+      <button type="button" class="btn" id="act-copy">Copy world code</button>
+      <button type="button" class="btn" id="act-paste" aria-expanded="false" aria-controls="paste-form">Load a code</button>
+      <button type="button" class="btn" id="act-sound" aria-pressed="false">Sonify</button>
+    </div>
+    <form class="paste" id="paste-form" hidden novalidate>
+      <label class="paste__label" for="paste-input">World code</label>
+      <input class="paste__input" id="paste-input" name="code" type="text" autocomplete="off" spellcheck="false" placeholder="t1.6…" aria-describedby="paste-error">
+      <button type="submit" class="btn btn--primary">Load</button>
+      <button type="button" class="btn" id="paste-cancel">Cancel</button>
+      <p class="paste__error" id="paste-error" aria-live="polite"></p>
+    </form>
+  </header>
+
+  <main id="main">
+    <figure class="fig" id="fig1" aria-labelledby="fig-title">
+
+      <section class="panel panel--a" aria-labelledby="head-a">
+        <h2 class="panel__head" id="head-a"><span class="panel__letter">a</span><span class="panel__title">Dish</span><span class="sr-only">: live simulation</span></h2>
+        <div class="dish" id="dish">
+          <div class="dish__axes" id="dish-axes" aria-hidden="true"></div>
+          <div class="dish__plate" id="dish-plate">
+            <canvas class="dish__canvas" id="dish-canvas" role="img" aria-label="Live particle simulation"></canvas>
+            <svg class="dish__brush" id="dish-brush" aria-hidden="true"><circle r="10"></circle></svg>
+            <p class="dish__clock" id="dish-clock" aria-hidden="true"><i>t</i> = <span id="clock-t">0.0</span> s</p>
+            <p class="dish__track" id="dish-track" hidden></p>
+            <p class="dish__paused" id="dish-paused" hidden>Paused</p>
+            <p class="dish__fallback" id="dish-fallback" hidden>This browser could not start a drawing surface, so the dish cannot be shown. The table and caption still work.</p>
+          </div>
+        </div>
+
+        <div class="tools" role="toolbar" aria-label="Dish tools">
+          <div class="seg" role="radiogroup" aria-labelledby="tool-label" id="tool-group">
+            <span class="seg__label" id="tool-label">Drag to</span>
+            <button type="button" role="radio" aria-checked="true" data-tool="stir" class="seg__opt">Stir</button>
+            <button type="button" role="radio" aria-checked="false" data-tool="seed" class="seg__opt">Seed</button>
+            <button type="button" role="radio" aria-checked="false" data-tool="erase" class="seg__opt">Erase</button>
+            <button type="button" role="radio" aria-checked="false" data-tool="pan" class="seg__opt">Pan</button>
+          </div>
+          <div class="seg seg--species" role="radiogroup" aria-label="Species to seed" id="seed-species" hidden></div>
+          <div class="tools__run">
+            <button type="button" class="btn" id="act-pause" aria-pressed="false">Pause</button>
+            <span class="tools__speed">Speed <span id="s-speed">1</span>×</span>
+            <button type="button" class="btn" id="act-trails" aria-pressed="false">Trails</button>
+            <button type="button" class="btn" id="act-view" disabled>Reset view</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="fig__side">
+        <section class="panel panel--b" aria-labelledby="head-b">
+          <h2 class="panel__head" id="head-b"><span class="panel__letter">b</span><span class="panel__title">Affinity <i>a</i><sub><i>ij</i></sub>, row toward column</span></h2>
+          <div class="panel__body" id="matrix"></div>
+        </section>
+
+        <section class="panel panel--c" aria-labelledby="head-c">
+          <h2 class="panel__head" id="head-c"><span class="panel__letter">c</span><span class="panel__title">Force law</span></h2>
+          <div class="panel__body" id="force"></div>
+        </section>
+
+        <section class="panel panel--d" aria-labelledby="head-d">
+          <h2 class="panel__head" id="head-d"><span class="panel__letter">d</span><span class="panel__title">Aggregation and speed, last 20 s</span></h2>
+          <div class="panel__body" id="traces"></div>
+        </section>
+
+        <figcaption class="caption" id="caption">
+          <p class="caption__text"><b class="caption__title" id="fig-title">Fig. 1 | Life from a table of affinities.</b>
+            <b>a</b>, Live simulation of <span class="slot" id="s-n">5,000</span> particles of <span class="slot" id="s-S">6</span> species on a periodic square of side <span class="slot" id="s-side">18.2</span>&#8201;<i>r</i><sub>max</sub>, now at <i>t</i>&#8201;=&#8201;<span class="live" id="live-t">0.0</span>&#8201;s.
+            Particles closer than <i>β</i>&#8201;=&#8201;<span class="slot" id="s-beta">0.30</span>&#8201;<i>r</i><sub>max</sub> push apart; farther out, up to <i>r</i><sub>max</sub>, each is drawn toward or pushed from the other by its affinity in <b>b</b>.
+            Velocities decay with a half-life of <span class="slot" id="s-half">40</span>&#8201;ms and forces are scaled by <i>k</i>&#8201;=&#8201;<span class="slot" id="s-k">10</span>.
+            <b>b</b>, Affinity of species <i>i</i> (row) toward species <i>j</i> (column). Filled discs attract, open rings repel, and area is proportional to |<i>a</i>|. Drag a disc up or right to strengthen attraction, down or left toward repulsion.
+            <b>c</b>, Force on a particle of species <i>i</i> from one of species <i>j</i> at distance <i>r</i>, for the pair under the pointer; at rest, for the most lopsided pair in <b>b</b>.
+            <b>d</b>, Aggregation (neighbours of the same species within <i>r</i><sub>max</sub>, relative to a well-mixed gas; now <span class="live" id="live-agg">1.0</span>×) and mean speed of each species.
+            Numbers with a dotted underline can be dragged.</p>
+
+          <p class="worldline"><span class="worldline__key">World code</span> <code class="worldline__code" id="world-code">t1</code></p>
+          <p class="worldline worldline--rev" id="revision" aria-live="polite">Revision 0, as generated.</p>
+          <p class="sr-only" id="status" aria-live="polite"></p>
+        </figcaption>
+      </div>
+    </figure>
+
+    <section class="ed" id="extended-data" aria-labelledby="ed-title">
+      <div class="ed__inner">
+        <h2 class="ed__title" id="ed-title">Extended Data</h2>
+        <p class="ed__lede">Authored worlds, ordered from two species to eight. Each panel is a snapshot taken after the world settled from a uniform gas. Open one in Fig.&#8201;1 to watch it assemble from the start.</p>
+        <ol class="ed__grid" id="ed-grid"></ol>
+      </div>
+    </section>
+
+    <article class="methods" id="methods" aria-labelledby="methods-title">
+      <h2 class="methods__title" id="methods-title">Methods</h2>
+
+      <div class="methods__grid">
+      <div class="methods__text">
+      <h3>Model</h3>
+      <p>The dish holds <i>N</i> particles of <i>S</i> species on a unit square whose edges wrap, so a particle leaving the right side re-enters on the left. Every pair closer than the interaction radius <i>r</i><sub>max</sub> exerts a force along the line between them. The force on a particle of species <i>i</i> from a particle of species <i>j</i> at distance <i>r</i> depends only on that distance and on one number, the affinity <i>a</i><sub><i>ij</i></sub>:</p>
+      <div class="eq" role="math" aria-label="F of r equals r over beta minus one when r is less than beta; a i j times one minus the absolute value of two r minus one minus beta, over one minus beta, when r is between beta and one; and zero beyond.">
+        <span class="eq__lhs"><i>F</i>(<i>r</i>)&#8201;=</span>
+        <svg class="eq__brace" viewBox="0 0 12 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M11 1C5.5 1 6 5 6 13V39C6 45.5 4.5 49 1 50C4.5 51 6 54.5 6 61V87C6 95 5.5 99 11 99"/></svg>
+        <span class="eq__cases">
+          <span class="eq__case"><span><i>r</i>&#8201;/&#8201;<i>β</i>&#8201;−&#8201;1</span><span class="eq__when"><i>r</i>&#8201;&lt;&#8201;<i>β</i></span></span>
+          <span class="eq__case"><span><i>a</i><sub><i>ij</i></sub>&#8201;(1&#8201;−&#8201;|2<i>r</i>&#8201;−&#8201;1&#8201;−&#8201;<i>β</i>|&#8201;/&#8201;(1&#8201;−&#8201;<i>β</i>))</span><span class="eq__when"><i>β</i>&#8201;≤&#8201;<i>r</i>&#8201;&lt;&#8201;1</span></span>
+          <span class="eq__case"><span>0</span><span class="eq__when"><i>r</i>&#8201;≥&#8201;1</span></span>
+        </span>
+      </div>
+      <p>Here <i>r</i> is measured in units of <i>r</i><sub>max</sub>. The first branch is a short-range repulsion shared by every pair, so particles never sit on top of one another. The second is a tent that peaks at <i>a</i><sub><i>ij</i></sub> halfway between <i>β</i> and <i>r</i><sub>max</sub>: positive affinities pull <i>i</i> toward <i>j</i>, negative ones push it away. Panel <b>c</b> draws this curve for the pair under the pointer, and at rest for the most lopsided pair in the table.</p>
+      <p>The table is not symmetric. <i>a</i><sub><i>ij</i></sub> says how <i>i</i> responds to <i>j</i>, and <i>a</i><sub><i>ji</i></sub> how <i>j</i> responds to <i>i</i>; nothing forces the two to agree. That asymmetry breaks Newton's third law on purpose, which is why the dish never settles into stillness: a species drawn toward another that flees it will chase it forever.</p>
+
+      <h3>Integration</h3>
+      <p>Each step advances time by Δ<i>t</i>&#8201;=&#8201;0.02&#8201;s. Forces are summed over neighbours, scaled by <i>k</i>&#8201;<i>r</i><sub>max</sub>, and added to the velocity, which first decays by the factor 0.5<sup>Δ<i>t</i>&#8201;/&#8201;<i>t</i><sub>½</sub></sup> where <i>t</i><sub>½</sub> is the velocity half-life. All velocities are updated from the same snapshot of positions before any particle moves, so the result does not depend on the order particles are visited. Neighbours are found with a uniform grid of cells at least <i>r</i><sub>max</sub> wide, so each step costs time proportional to <i>N</i> rather than <i>N</i><sup>2</sup>.</p>
+
+      <h3>Reading the table</h3>
+      <p>A few tendencies make the table readable, though larger tables combine them in ways that are hard to predict:</p>
+      <ul class="methods__list">
+        <li>A positive diagonal entry <i>a</i><sub><i>ii</i></sub> makes a species clump; a negative one spreads it into a gas.</li>
+        <li>When <i>a</i><sub><i>ij</i></sub> is positive and <i>a</i><sub><i>ji</i></sub> negative, <i>i</i> chases <i>j</i> and <i>j</i> flees. Pairs like this make bodies that travel.</li>
+        <li>When both are positive, the two species share bodies; when both are negative, they hold each other apart and draw boundaries.</li>
+        <li>A cycle, where <i>i</i> chases <i>j</i>, <i>j</i> chases <i>k</i>, and <i>k</i> chases <i>i</i>, tends to produce chains and rotating rings.</li>
+      </ul>
+
+      <h3>Statistics</h3>
+      <p>Panel <b>d</b> plots two quantities per species, sampled ten times a second. Aggregation is the mean number of same-species neighbours within <i>r</i><sub>max</sub>, divided by the number expected if that species were spread uniformly, (<i>N</i><sub><i>s</i></sub>&#8201;−&#8201;1)&#8201;π&#8201;<i>r</i><sub>max</sub><sup>2</sup>. A value of 1 means well mixed; 10 means each particle has ten times as many kin nearby as chance would give it. Speed is the mean particle speed in <i>r</i><sub>max</sub> per second.</p>
+
+      <h3>Working in the dish</h3>
+      <p>Drag in panel <b>a</b> to stir, to seed new particles of a chosen species, to erase, or to pan. Click a particle to track it; its path is drawn for the last twelve seconds. Scroll or pinch to zoom, double-click to reset the view. Every change to the table or the parameters is a revision you can undo. Table&#8201;2 lists the keyboard shortcuts.</p>
+
+      <h3>Reproducibility</h3>
+      <p>A world code records the table, the number of species and particles, every parameter, and the random seed for the starting positions. Loading a code rebuilds the same starting gas, and the simulation runs identically in the same browser engine until someone touches the dish. Codes use only letters, digits, dots, dashes and underscores, so they survive being pasted into a chat or a link.</p>
+
+      <h3>Sound</h3>
+      <p>Sonify gives each species one voice on a pentatonic scale, lowest for <b>A</b>. A voice grows louder as its species clusters and brighter as it speeds up, so a dish that is condensing swells and a dish that is chasing shimmers. Sound is off until you turn it on.</p>
+
+      <h3>Credits</h3>
+      <p>The model belongs to the family of particle-life simulations; its force law follows the one popularised by Tom Mohr's <i>Particle Life</i>, which descends from Jeffrey Ventrella's <i>Clusters</i>. The species colours follow Okabe and Ito's palette for colour-blind readers, paired with plot markers so no species depends on colour alone. Type is set in Archivo and STIX Two Text. The worlds in Extended Data were chosen by a seeded search and named by hand; they are illustrations, not observations of real organisms.</p>
+      </div>
+
+      <aside class="methods__aside" aria-label="Reference tables">
+        <figure class="tbl">
+          <figcaption class="tbl__cap"><b>Table 1 |</b> Parameters, their defaults, and the range each caption number can be dragged through.</figcaption>
+          <div class="tbl__scroll">
+            <table>
+              <thead><tr><th scope="col">Symbol</th><th scope="col">Meaning</th><th scope="col" class="num">Default</th><th scope="col" class="num">Range</th></tr></thead>
+              <tbody>
+                <tr><td><i>N</i></td><td>particles</td><td class="num">5,000</td><td class="num">500–12,000</td></tr>
+                <tr><td><i>S</i></td><td>species</td><td class="num">per world</td><td class="num">2–8</td></tr>
+                <tr><td>1&#8201;/&#8201;<i>r</i><sub>max</sub></td><td>side of the square, in interaction radii</td><td class="num">18.2</td><td class="num">8.4–50</td></tr>
+                <tr><td><i>β</i></td><td>repulsive core, in <i>r</i><sub>max</sub></td><td class="num">0.30</td><td class="num">0.05–0.60</td></tr>
+                <tr><td><i>t</i><sub>½</sub></td><td>velocity half-life</td><td class="num">40&#8201;ms</td><td class="num">5–200&#8201;ms</td></tr>
+                <tr><td><i>k</i></td><td>force scale</td><td class="num">10</td><td class="num">1–30</td></tr>
+                <tr><td><i>a</i><sub><i>ij</i></sub></td><td>affinity, in steps of 0.05</td><td class="num">per world</td><td class="num">−1 to +1</td></tr>
+                <tr><td>Δ<i>t</i></td><td>time step</td><td class="num">0.02&#8201;s</td><td class="num">fixed</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </figure>
+
+        <figure class="tbl">
+          <figcaption class="tbl__cap"><b>Table 2 |</b> Keyboard shortcuts.</figcaption>
+          <div class="tbl__scroll">
+            <table class="tbl--keys">
+              <tbody>
+                <tr><td><kbd>Space</kbd></td><td>Pause or resume</td></tr>
+                <tr><td><kbd>N</kbd></td><td>New world with the same number of species</td></tr>
+                <tr><td><kbd>M</kbd></td><td>Mutate one to three affinities</td></tr>
+                <tr><td><kbd>Z</kbd>, <kbd>Shift</kbd>&#8201;<kbd>Z</kbd></td><td>Undo or redo a revision</td></tr>
+                <tr><td><kbd>1</kbd>–<kbd>4</kbd></td><td>Stir, seed, erase, pan</td></tr>
+                <tr><td><kbd>T</kbd></td><td>Show or hide trails</td></tr>
+                <tr><td><kbd>0</kbd></td><td>Reset the view</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>Stop tracking</td></tr>
+                <tr><td>Arrows, <kbd>+</kbd>, <kbd>−</kbd></td><td>Move through panel <b>b</b> and change the focused affinity</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </figure>
+      </aside>
+      </div>
+    </article>
+  </main>
+
+  <footer class="foot">
+    <p>Tropism. An interactive figure; nothing on this page is a measurement of a living thing.</p>
+  </footer>
+</div>
+
+<script type="module" src="src/main.js"></script>
+
+</body>
+</html>

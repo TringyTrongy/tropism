@@ -1,0 +1,8 @@
+# Build output (node tools/build.mjs)
+dist/
+
+# Dependencies, logs, OS clutter
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
