@@ -26,11 +26,7 @@ Along the top: **New world**, **Mutate** (nudges one to three affinities), **Und
 
 Scroll down for **Extended Data**, nine hand-picked worlds ordered from two species to eight, and **Methods**, which explains the model.
 
-<p align="center">
-  <img src="media/tropism-dark.png" alt="Tropism in the dark theme with trails on: species-coloured bodies leaving faint tracer tracks" width="68%">
-  &nbsp;
-  <img src="media/tropism-phone.png" alt="Tropism on a phone: the figure stacked into one column" width="24%">
-</p>
+![Tropism in the dark theme with trails on: species-coloured bodies leaving faint tracer tracks](media/tropism-dark.png)
 
 ## Things to try
 
