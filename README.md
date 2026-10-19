@@ -85,7 +85,7 @@ A few rules of thumb:
 - **Off the main thread** (`src/sim-worker.js`, `src/sim-host.js`): the simulation runs in a Web Worker and streams positions back through swapped transferable buffers, so drawing and controls stay smooth even when a dense world costs 15+ ms per step. If a Worker cannot start, the same code runs on the main thread.
 - **Rendering** (`src/render.js`): WebGL2 instanced quads with a signed-distance marker per species (circle, square, triangle, diamond, …), antialiased, with ink-over-paper compositing in both themes. There is a Canvas2D fallback with the same behaviour.
 - **Reproducible worlds** (`src/genome.js`): a world code like `t1.5…` stores the table, every parameter and the random seed. The same code rebuilds the same starting state, and the simulation replays identically until someone touches the dish.
-- **Accessible by design**: species are told apart by marker shape as well as colour (Okabe–Ito colour-blind-safe palette). Every control works from the keyboard. Reduced-motion settings start the dish at half speed. Light and dark themes follow your system.
+- **Accessible by design**: species are told apart by marker shape as well as colour (Okabe–Ito colour-blind-safe palette). Every control works from the keyboard. Speed is measured in real time, so it is the same on any display; reduced-motion settings run the dish at a quarter speed. Light and dark themes follow your system.
 - **No dependencies, no build step** for development: plain ES modules, hand-written SVG plots, Web Audio for sound.
 
 ## Run it locally

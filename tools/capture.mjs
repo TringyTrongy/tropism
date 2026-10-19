@@ -135,7 +135,7 @@ try {
   const shot = await s('Page.captureScreenshot', { format: 'png', captureBeyondViewport: beyond, ...(clip ? { clip } : {}) });
   writeFileSync(resolve(out), Buffer.from(shot.data, 'base64'));
   const overflow = await s('Runtime.evaluate', {
-    expression: 'JSON.stringify({ docW: document.documentElement.scrollWidth, vw: innerWidth, docH: document.documentElement.scrollHeight })',
+    expression: 'JSON.stringify({ docW: document.documentElement.scrollWidth, vw: innerWidth, docH: document.documentElement.scrollHeight, simClock: (document.getElementById("clock-t") || {}).textContent })',
     returnByValue: true,
   });
   console.log(`captured ${out} ${W}x${H}${opts.full ? ' full' : ''} ${overflow.result.value}`);

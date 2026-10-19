@@ -21,11 +21,18 @@ import { SPECIES, SPECIES_MIN, SPECIES_MAX, paletteCSS, markerSVG, currentTheme 
 const CAPACITY = 12000;
 const TRACK_POINTS = 600;              // 12 s of path at 50 steps/s
 const STATS_INTERVAL = 100;            // ms between statistics samples
-const SPEEDS = [0.25, 0.5, 1, 2, 3];   // simulation steps per animation frame
-// A step this slow, sustained for SLOW_SAMPLES statistics samples (about 2 s), trims the dish.
-// On the main thread 12 ms of physics already stalls the page; in the worker the page stays
-// smooth, so only a step slow enough to run the dish below about half speed counts.
-const SLOW_STEP_MS = { main: 12, worker: 30 };
+// Speed is a multiple of real time, so it is the same on a 60 Hz and a 144 Hz display:
+// at 1x, one second of simulated time passes per second of wall-clock time (1 / DT steps).
+const SPEEDS = [0.25, 0.5, 1, 2, 4];
+const REAL_TIME_STEPS = 1 / DT;
+// A fresh world starts as a uniform gas; its first WARM_STEPS run fast-forwarded (up to
+// WARM_BOOST times the chosen speed, easing out) so bodies condense within a few seconds.
+const WARM_STEPS = 250;
+const WARM_BOOST = 4;
+// The dish is trimmed only when the device cannot keep the chosen speed: the steps it can
+// afford per second (the worker can spend its whole thread, the main thread about 60% of a
+// frame budget) fall below the requested rate for SLOW_SAMPLES samples (about 2 s).
+const STEP_BUDGET_MS = { main: 600, worker: 950 };
 const SLOW_SAMPLES = 20;
 const MINUS = '−';
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -55,7 +62,7 @@ const state = {
   revision: 0,
   revisionNote: 'as generated',
   running: true,
-  speedIndex: reducedMotion.matches ? 1 : 2,   // reduced motion starts the dish at half speed
+  speedIndex: reducedMotion.matches ? 0 : 1,   // half real time; a quarter under reduced motion
   trails: false,
   tool: 'stir',
   seedSpecies: 0,
@@ -770,7 +777,7 @@ function initScrubs() {
     value: state.speedIndex, min: 0, max: SPEEDS.length - 1, step: 1,
     format: (v) => {
       const s = SPEEDS[v];
-      return s === 0.25 ? '¼' : s === 0.5 ? '½' : String(s);
+      return s === 0.25 ? '¼' : s === 0.5 ? '½' : String(s);   // multiples of real time
     },
     label: 'Simulation speed', pxPerStep: 16,
     onInput(v) { state.speedIndex = v; },
@@ -1027,6 +1034,18 @@ function initLayout() {
 // ---------------------------------------------------------------- frame loop
 
 let lastStats = 0;
+let lastFrame = 0;
+
+/** Steps owed for `wall` seconds at the chosen speed, fast-forwarded while a fresh world condenses. */
+function stepsDue(wall) {
+  let rate = REAL_TIME_STEPS * SPEEDS[state.speedIndex];
+  const steps = sim.view ? sim.view.steps : WARM_STEPS;
+  if (!reducedMotion.matches && steps < WARM_STEPS) {
+    const left = 1 - steps / WARM_STEPS;
+    rate *= 1 + (WARM_BOOST - 1) * left * left;
+  }
+  return rate * wall;
+}
 let slowSamples = 0;
 let adaptations = 0;
 let adaptSteps = -1;     // step count at the last device check
@@ -1047,7 +1066,9 @@ function frame(now) {
 
   // This frame's share of steps. The worker takes them on its own thread (as fast as it can
   // when a dense world falls behind); the main-thread fallback spends at most ~14 ms here.
-  if (state.running && state.visible) sim.tick(SPEEDS[state.speedIndex]);
+  const wall = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 0;
+  lastFrame = now;
+  if (state.running && state.visible && wall > 0) sim.tick(stepsDue(wall));
 
   // The dish is drawn every frame from the latest positions, whether or not the world moved.
   if (renderer && state.visible) drawDish();
@@ -1075,8 +1096,9 @@ function adaptToDevice(steps) {
   if (adaptations >= 3 || steps === adaptSteps) return;
   adaptSteps = steps;
   // Dense worlds cost more per step than sparse ones, so this watches the actual cost:
-  // a sustained slow step (SLOW_STEP_MS) trims a quarter of the particles.
-  if (sim.stepCost > SLOW_STEP_MS[sim.kind] && SPEEDS[state.speedIndex] >= 1) slowSamples += 1;
+  // a sustained shortfall against the chosen speed trims a quarter of the particles.
+  const affordable = STEP_BUDGET_MS[sim.kind] / Math.max(0.1, sim.stepCost);   // steps per second
+  if (affordable < REAL_TIME_STEPS * SPEEDS[state.speedIndex]) slowSamples += 1;
   else slowSamples = Math.max(0, slowSamples - 2);
   const n0 = sim.view.n;
   if (slowSamples > SLOW_SAMPLES && n0 > 2000) {
