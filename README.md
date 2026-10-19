@@ -142,7 +142,7 @@ media/                screenshots for this README
 
 ## Credits
 
-- The model belongs to the family of particle-life simulations. The force law follows the one popularised by Tom Mohr's *Particle Life*, which descends from Jeffrey Ventrella's *Clusters*.
+- The model belongs to the family of particle-life simulations, which began with Jeffrey Ventrella's [*Clusters*](https://ventrella.com/Clusters/) and includes CodeParade's [*Particle-Life*](https://github.com/HackerPoet/Particle-Life) (2018). The force law follows the one popularised by Tom Mohr's [*Particle Life*](https://particle-life.com/), explained in his [video](https://youtu.be/scvuli-zcRc).
 - Species colours follow Masataka Okabe and Kei Ito's colour-blind-safe palette.
 - Type: [Archivo](https://fonts.google.com/specimen/Archivo) and [STIX Two Text](https://fonts.google.com/specimen/STIX+Two+Text), via Google Fonts.
 - The Extended Data worlds were found by a seeded search and named by hand. They are illustrations, not observations of real organisms.
