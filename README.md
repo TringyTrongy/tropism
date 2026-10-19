@@ -149,4 +149,4 @@ media/                screenshots for this README
 
 ## License
 
-[MIT](LICENSE)
+[CC BY-NC-SA 4.0](LICENSE). You may share and adapt Tropism for **non-commercial** purposes, as long as you credit it and release your adaptation under the same license. Commercial use, including selling it or building it into a paid or closed-source product, is not permitted without permission; open an issue to ask.
